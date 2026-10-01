@@ -1,11 +1,10 @@
-BIKE CADENCE VISION — prototipo
+BIKE CADENCE VISION v0.2 — iPhone HTTPS prototype
 
-1. La cámara del navegador requiere HTTPS en iPhone (salvo localhost).
-2. Publica index.html en GitHub Pages, Netlify, Vercel o cualquier hosting HTTPS.
-3. Abre la URL en Safari y pulsa “Iniciar cámara”.
-4. Da permiso de cámara.
-5. Coloca el teléfono aproximadamente lateral al ciclista, mostrando cadera, rodilla y tobillo.
+1. Deploy the contents of this folder to any static HTTPS host (GitHub Pages, Netlify, Vercel, Cloudflare Pages, etc.).
+2. Open the resulting https:// URL in Safari on the iPhone.
+3. Tap “Iniciar cámara” and allow camera access.
+4. Put the iPhone approximately side-on to the cyclist so hip, knee and ankle are visible.
 
-Algoritmo: MediaPipe Pose Landmarker local en navegador. Selecciona la pierna con mayor visibilidad, calcula el ángulo cadera-rodilla-tobillo y detecta mínimos periódicos de flexión. El intervalo entre mínimos se convierte a RPM y se suaviza.
+IMPORTANT: opening index.html directly from Files (file://) is not a secure web context and iOS will not expose getUserMedia().
 
-Nota: es un prototipo experimental; hay que validar y ajustar umbrales con vídeos reales de ciclismo.
+The page now displays diagnostics for HTTPS/security context, camera API availability, permission errors and MediaPipe startup.
