@@ -47,3 +47,19 @@ test('track count remains bounded and free IDs are reused after expiry',()=>{
  const tracks=tracker.update(rpms.map((_,i)=>pose(i,2000)),2000);
  assert.deepEqual(tracks.map(t=>t.id),[1,2,3,4,5,6,7,8]);
 });
+test('duplicate head and shoulders with displaced hips cannot create or steal an identity',()=>{
+ const tracker=new PoseTracks();let tracks;
+ for(let frame=0;frame<180;frame++){
+  const t=frame*1000/30,a=pose(0,t),b=pose(1,t),poses=[b,a];
+  if(frame===90){
+   const duplicate=a.map(p=>({...p}));duplicate[0].visibility=.8;
+   for(const i of [23,24]){duplicate[i].x-=.07;duplicate[i].y+=.06;}
+   poses.unshift(duplicate);
+  }
+  tracks=tracker.update(poses,t);
+  assert.deepEqual(tracks.map(t=>t.id),[1,2]);
+  assert.equal(tracks[0].lm,a);assert.equal(tracks[1].lm,b);
+ }
+ assert.ok(Math.abs(tracks[0].result.rpm-rpms[0])<1);
+ assert.ok(Math.abs(tracks[1].result.rpm-rpms[1])<1);
+});

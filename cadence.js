@@ -181,7 +181,22 @@
     update(poses,t,aspect=1,still=false){
       this.tracks=this.tracks.filter(x=>t-x.seen<1200);
       const existing=this.tracks.slice();
-      const ordered=poses.slice(0,this.maxTracks).map(lm=>({lm,x:(lm[23].x+lm[24].x)/2,y:(lm[23].y+lm[24].y)/2})).sort((a,b)=>Math.round(a.y/.18)-Math.round(b.y/.18)||a.x-b.x);
+      const center=(lm,a,b)=>({x:(lm[a].x+lm[b].x)/2,y:(lm[a].y+lm[b].y)/2});
+      const distance=(a,b)=>Math.hypot((a.x-b.x)*aspect,a.y-b.y);
+      const observations=poses.map(lm=>{
+        const hip=center(lm,23,24),shoulder=center(lm,11,12);
+        return {lm,...hip,anchor:Math.min(lm[11].visibility,lm[12].visibility)>=.5?shoulder:hip,shoulder,torso:distance(hip,shoulder),headQuality:lm[0]?.visibility??0};
+      }).sort((a,b)=>b.headQuality-a.headQuality);
+      const unique=[];
+      for(const p of observations){
+        // Multi-pose inference can return the same head/shoulders with different hips.
+        // Keep one observation before matching so a duplicate cannot steal an ID.
+        const duplicate=unique.some(q=>p.headQuality>=.5&&q.headQuality>=.5&&
+          distance(p.lm[0],q.lm[0])<Math.min(p.torso,q.torso)*.25&&
+          distance(p.shoulder,q.shoulder)<Math.min(p.torso,q.torso)*.25);
+        if(!duplicate)unique.push(p);
+      }
+      const ordered=unique.slice(0,this.maxTracks).sort((a,b)=>Math.round(a.y/.18)-Math.round(b.y/.18)||a.x-b.x);
       // Minimum-total-distance assignment; eight tracks need at most 256 masks.
       // An unmatched pose costs .28, so a distant person cannot steal a history.
       const memo=new Map();
@@ -191,7 +206,7 @@
         const next=assign(i+1,mask);let best={cost:.28+next.cost,matches:[-1,...next.matches]};
         for(let j=0;j<existing.length;j++){
           if(mask&(1<<j))continue;
-          const d=Math.hypot((ordered[i].x-existing[j].x)*aspect,ordered[i].y-existing[j].y);
+          const d=distance(ordered[i].anchor,existing[j].anchor);
           if(d>=.28)continue;
           const rest=assign(i+1,mask|(1<<j)),cost=d+rest.cost;
           if(cost<best.cost)best={cost,matches:[j,...rest.matches]};
