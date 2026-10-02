@@ -35,16 +35,19 @@ test('briefly missing cyclist returns to the same ID without contaminating seven
  for(const track of tracks)assert.ok(Math.abs(track.result.rpm-rpms[track.id-1])<1);
 });
 test('global matching avoids greedy swaps for nearby hips',()=>{
- const tracker=new PoseTracks();tracker.update([pose(0,0),pose(1,0)],0);
+ const tracker=new PoseTracks();for(const t of [0,150,300])tracker.update([pose(0,t),pose(1,t)],t);
  // First new pose is nearer track 2; the second must also map to track 2.
  // Globally, first->track 1 and second->track 2 is the lower-cost pairing.
- const a=pose(0,33),b=pose(1,33);for(const p of a)p.x=.27;for(const p of b)p.x=.36;
- const tracks=tracker.update([a,b],33);
+ const a=pose(0,333),b=pose(1,333);for(const p of a)p.x=.27;for(const p of b)p.x=.36;
+ const tracks=tracker.update([a,b],333);
  assert.equal(tracks[0].lm,a);assert.equal(tracks[1].lm,b);
 });
 test('track count remains bounded and free IDs are reused after expiry',()=>{
- const tracker=new PoseTracks();tracker.update(rpms.map((_,i)=>pose(i,0)),0);
- const tracks=tracker.update(rpms.map((_,i)=>pose(i,2000)),2000);
+ const tracker=new PoseTracks();let tracks;
+ for(const t of [0,150,300])tracks=tracker.update(rpms.map((_,i)=>pose(i,t)),t);
+ assert.equal(tracks.length,8);
+ assert.equal(tracker.update(rpms.map((_,i)=>pose(i,2000)),2000).length,0);
+ for(const t of [2150,2300])tracks=tracker.update(rpms.map((_,i)=>pose(i,t)),t);
  assert.deepEqual(tracks.map(t=>t.id),[1,2,3,4,5,6,7,8]);
 });
 test('duplicate head and shoulders with displaced hips cannot create or steal an identity',()=>{
@@ -57,9 +60,20 @@ test('duplicate head and shoulders with displaced hips cannot create or steal an
    poses.unshift(duplicate);
   }
   tracks=tracker.update(poses,t);
+  if(t<300){assert.equal(tracks.length,0);continue;}
   assert.deepEqual(tracks.map(t=>t.id),[1,2]);
   assert.equal(tracks[0].lm,a);assert.equal(tracks[1].lm,b);
  }
  assert.ok(Math.abs(tracks[0].result.rpm-rpms[0])<1);
  assert.ok(Math.abs(tracks[1].result.rpm-rpms[1])<1);
+});
+
+test('isolated false pose never appears or reserves a cyclist number',()=>{
+ const tracker=new PoseTracks();let tracks;
+ for(const t of [0,100,200,300,400]){
+  const poses=[pose(0,t),pose(1,t)];if(t===0)poses.push(pose(2,t));
+  tracks=tracker.update(poses,t);
+  assert.deepEqual(tracks.map(t=>t.id),t<300?[]:[1,2]);
+ }
+ assert.equal(tracks[0].x,.13);assert.equal(tracks[1].x,.375);
 });

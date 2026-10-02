@@ -179,7 +179,7 @@
     constructor(maxTracks=8){this.maxTracks=maxTracks;this.tracks=[];}
     reset(){this.tracks=[];}
     update(poses,t,aspect=1,still=false){
-      this.tracks=this.tracks.filter(x=>t-x.seen<1200);
+      this.tracks=this.tracks.filter(x=>t-x.seen<(x.id===null?350:1200));
       const existing=this.tracks.slice();
       const center=(lm,a,b)=>({x:(lm[a].x+lm[b].x)/2,y:(lm[a].y+lm[b].y)/2});
       const distance=(a,b)=>Math.hypot((a.x-b.x)*aspect,a.y-b.y);
@@ -218,17 +218,22 @@
         const p=ordered[i];let track=matches[i]===-1?null:existing[matches[i]];
         if(!track){
           if(this.tracks.length>=this.maxTracks)continue;
+          track={id:null,firstSeen:t,observations:0,detector:new CadenceDetector()};this.tracks.push(track);
+        }
+        track.observations++;
+        // Do not expose a cyclist or reserve its number for a one-frame hallucination.
+        if(track.id===null&&t-track.firstSeen>=300&&track.observations>=3){
           const used=new Set(this.tracks.map(x=>x.id));let id=1;while(used.has(id))id++;
-          track={id,detector:new CadenceDetector()};this.tracks.push(track);
+          track.id=id;
         }
         seen.add(track);Object.assign(track,p,{seen:t});
         track.signals=poseSignals(p.lm,aspect);track.result=still?track.detector.noMotion(t):track.detector.update(t,track.signals);
       }
       for(const track of this.tracks)if(!seen.has(track)){track.result=track.detector.missing(t);track.lm=null;}
       this.tracks.sort((a,b)=>a.id-b.id);
-      return this.tracks;
+      return this.tracks.filter(x=>x.id!==null);
     }
-    still(t){for(const track of this.tracks)track.result=track.detector.noMotion(t);return this.tracks;}
+    still(t){for(const track of this.tracks)track.result=track.detector.noMotion(t);return this.tracks.filter(x=>x.id!==null);}
   }
   const api={CadenceDetector,PoseTracks,poseSignals};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
