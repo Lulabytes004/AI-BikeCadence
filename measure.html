@@ -8,7 +8,7 @@ async function loadMediaPipe(){
   PoseLandmarker=mod.PoseLandmarker; FilesetResolver=mod.FilesetResolver; DrawingUtils=mod.DrawingUtils;
 }
 const $=id=>document.getElementById(id), video=$('video'), canvas=$('overlay'), ctx=canvas.getContext('2d');
-let pose=null, running=false,lastVideoTime=-1,lastInference=0; let hist=[], peaks=[], smoothRpm=null, cycleCount=0;
+let pose=null,running=false,lastVideoTime=-1,lastInference=0,smoothRpm=null,cycleCount=0,lastCycleTime=0; const signalHist={};
 const start=$('start'), reset=$('reset'), status=$('status'), diag=$('diag');
 function diagnostics(){const secure=window.isSecureContext; const gum=!!navigator.mediaDevices?.getUserMedia; diag.innerHTML=`Origen: ${location.protocol}//${location.host||'(archivo local)'}\nContexto seguro HTTPS: ${secure?'SÍ':'NO'}\nAPI cámara disponible: ${gum?'SÍ':'NO'}\nNavegador: ${navigator.userAgent.includes('Safari')?'Safari/iOS compatible':'WebKit/navegador'}`; return secure&&gum;}
 diagnostics();
@@ -24,13 +24,26 @@ async function camera(){try{
  running=true;start.textContent='Detener';status.textContent='Buscando ciclista…';diag.innerHTML='<span class=\"ok\">✓ Cámara autorizada y vídeo iniciado.\n✓ Modelo de pose cargado.</span>';requestAnimationFrame(loop)
 }catch(e){console.error(e);status.textContent='Error de cámara';let msg=e.message||String(e);if(e.name==='NotAllowedError')msg='Permiso de cámara denegado. En iPhone: Ajustes → Safari → Cámara, o pulsa aA → Configuración del sitio web → Cámara → Permitir.';else if(e.name==='NotFoundError')msg='No se encontró una cámara disponible.';else if(e.name==='NotReadableError')msg='La cámara está ocupada por otra aplicación o Safari no puede acceder a ella.';diag.innerHTML='<span class=\"err\">✕ '+msg+'</span>';
  }}
-function resetData(){hist=[];peaks=[];smoothRpm=null;cycleCount=0;$('rpm').textContent='--';$('cycles').textContent='0';}
+function resetData(){smoothRpm=null;cycleCount=0;lastCycleTime=0;for(const k in signalHist)delete signalHist[k];$('rpm').textContent='--';$('cycles').textContent='0';$('method').textContent='--';}
 function stop(){running=false;video.srcObject?.getTracks().forEach(t=>t.stop());video.srcObject=null;start.textContent='Iniciar cámara';status.textContent='Detenido';ctx.clearRect(0,0,canvas.width,canvas.height)}
 start.onclick=()=>running?stop():camera(); reset.onclick=resetData;
-function angle(a,b,c){const u={x:a.x-b.x,y:a.y-b.y},v={x:c.x-b.x,y:c.y-b.y};const d=u.x*v.x+u.y*v.y,m=Math.hypot(u.x,u.y)*Math.hypot(v.x,v.y);return Math.acos(Math.max(-1,Math.min(1,d/m)))*180/Math.PI}
-function process(lm,t){const sides=[{n:'Izq.',h:23,k:25,a:27},{n:'Der.',h:24,k:26,a:28}]; let best=null;for(const s of sides){const p=[lm[s.h],lm[s.k],lm[s.a]],q=p.reduce((x,z)=>x+(z.visibility??1),0)/3;if(!best||q>best.q)best={...s,q,p}} if(!best)return; const [h,k,a]=best.p; const ang=angle(h,k,a); const signal=ang; $('side').textContent=best.n;$('quality').textContent=Math.round(best.q*100)+'%';$('qbar').style.width=Math.round(best.q*100)+'%'; if(best.q<.45)return; hist.push({t,v:signal}); while(hist.length&&t-hist[0].t>12000)hist.shift(); if(hist.length<5)return; const n=hist.length, v=hist[n-1].v, v1=hist[n-2].v, v2=hist[n-3].v; // detect flexion minima; one minimum = one revolution for one knee
- if(v1<v2 && v1<v && v1<125){ const pt=hist[n-2].t; const last=peaks.at(-1); if(!last || pt-last>350){ if(last){const dt=pt-last; const inst=60000/dt;if(inst>=25&&inst<=180){smoothRpm=smoothRpm==null?inst:.72*smoothRpm+.28*inst;cycleCount++;$('rpm').textContent=Math.round(smoothRpm);$('cycles').textContent=cycleCount}} peaks.push(pt);while(peaks.length&&pt-peaks[0]>10000)peaks.shift();}}
- status.textContent=smoothRpm?'Midiendo':'Detectando pedaleo…'; return {best,ang};}
+function angle(a,b,c){const u={x:a.x-b.x,y:a.y-b.y},v={x:c.x-b.x,y:c.y-b.y};const d=u.x*v.x+u.y*v.y,m=Math.hypot(u.x,u.y)*Math.hypot(v.x,v.y);return m?Math.acos(Math.max(-1,Math.min(1,d/m)))*180/Math.PI:0}
+function visibility(...p){return p.reduce((s,x)=>s+(x?.visibility??0),0)/p.length}
+function addSignal(name,t,v,q,points,type){if(!Number.isFinite(v)||q<.25)return;const h=signalHist[name]??=[];h.push({t,v,q});while(h.length&&t-h[0].t>6000)h.shift();signalHist[name]=h;h.points=points;h.type=type}
+function rangeScore(h){if(!h||h.length<10)return 0;const recent=h.filter(x=>h.at(-1).t-x.t<2200);if(recent.length<8)return 0;const vals=recent.map(x=>x.v);const amp=Math.max(...vals)-Math.min(...vals);const q=recent.reduce((a,x)=>a+x.q,0)/recent.length;const need=h.type==='angle'?12:.035;return q*.65+Math.min(1,amp/need)*.35}
+function peakTime(h){if(!h||h.length<5)return null;const n=h.length,b=h[n-2].v,a=h[n-3].v,c=h[n-1].v;const min=h.type==='angle';const extremum=min?(b<a&&b<c):(b>a&&b>c);if(!extremum)return null;const vals=h.slice(-20).map(x=>x.v),amp=Math.max(...vals)-Math.min(...vals),need=h.type==='angle'?10:.025;if(amp<need)return null;return h[n-2].t}
+function process(lm,t){
+ const legs=[['Izq.',23,25,27],['Der.',24,26,28]];
+ for(const [n,hi,ki,ai] of legs){const h=lm[hi],k=lm[ki],a=lm[ai],len=Math.max(.05,Math.hypot(a.x-h.x,a.y-h.y));addSignal('Ángulo '+n,t,angle(h,k,a),visibility(h,k,a),[h,k,a],'angle');addSignal('Rodilla '+n,t,(k.y-h.y)/len,visibility(h,k),[h,k],'pos');addSignal('Pie '+n,t,(a.y-h.y)/len,visibility(h,a),[h,a],'pos')}
+ const lh=lm[23],la=lm[27],rh=lm[24],ra=lm[28],scale=Math.max(.05,(Math.hypot(la.x-lh.x,la.y-lh.y)+Math.hypot(ra.x-rh.x,ra.y-rh.y))/2);
+ addSignal('Pies L-R',t,(la.y-ra.y)/scale,visibility(lh,la,rh,ra),[la,ra],'pos');
+ let best=null,score=0;for(const [name,h] of Object.entries(signalHist)){const sc=rangeScore(h);if(sc>score){score=sc;best=name}}
+ if(!best){$('method').textContent='--';$('quality').textContent='0%';$('qbar').style.width='0%';status.textContent='Buscando movimiento…';return}
+ $('method').textContent=best;$('quality').textContent=Math.round(score*100)+'%';$('qbar').style.width=Math.round(score*100)+'%';
+ const h=signalHist[best],pt=peakTime(h);
+ if(pt&&pt-lastCycleTime>330){if(lastCycleTime){const inst=60000/(pt-lastCycleTime);if(inst>=25&&inst<=180){smoothRpm=smoothRpm==null?inst:.72*smoothRpm+.28*inst;cycleCount++;$('rpm').textContent=Math.round(smoothRpm);$('cycles').textContent=cycleCount}}lastCycleTime=pt}
+ status.textContent=smoothRpm?'Midiendo':'Detectando pedaleo…';return {best:{p:h.points}};
+}
 function draw(lm,best){canvas.width=video.videoWidth;canvas.height=video.videoHeight;ctx.clearRect(0,0,canvas.width,canvas.height);if(!lm)return; const d=new DrawingUtils(ctx);d.drawConnectors(lm,PoseLandmarker.POSE_CONNECTIONS,{color:'rgba(255,255,255,.45)',lineWidth:3}); if(best){for(const p of best.p){ctx.beginPath();ctx.arc(p.x*canvas.width,p.y*canvas.height,9,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();ctx.lineWidth=4;ctx.strokeStyle='#111';ctx.stroke()}}}
 function loop(ts){if(!running)return;if(video.readyState>=2&&video.currentTime!==lastVideoTime&&ts-lastInference>45){lastVideoTime=video.currentTime;lastInference=ts;pose.detectForVideo(video,performance.now(),res=>{const lm=res.landmarks?.[0];if(lm){const out=process(lm,performance.now());draw(lm,out?.best)}else{status.textContent='No veo una persona';draw(null)}})}requestAnimationFrame(loop)}
 </script></body></html>
