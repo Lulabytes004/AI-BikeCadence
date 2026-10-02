@@ -4,30 +4,235 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>AI Bike Cadence · Platform Challenge</title>
+  <title>AI Bike Cadence · Simulador de niveles</title>
   <style>
     *{box-sizing:border-box}
-    body{margin:0;min-height:100vh;background:#0a0c10;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-    .app{max-width:720px;margin:auto;padding:18px}
-    .back{display:inline-block;color:#cbd0d8;text-decoration:none;margin-bottom:18px}
-    .card{background:#171a20;border:1px solid #2a2f39;border-radius:18px;padding:20px}
-    h1{margin:0 0 8px;font-size:26px}
-    p{color:#aeb5c1;line-height:1.45}
-    .state{margin-top:18px;padding:14px;border-radius:14px;background:#222731}
-    .state strong{display:block;font-size:18px;margin-bottom:5px}
+    body{margin:0;background:#0a0c10;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh}
+    .app{max-width:760px;margin:auto;padding:16px}
+    .back{display:inline-block;color:#cbd0d8;text-decoration:none;margin:4px 0 14px}
+    h1{font-size:26px;margin:0 0 6px}
+    .sub{color:#aeb5c1;margin:0 0 16px;line-height:1.4}
+    .card{background:#171a20;border:1px solid #2a2f39;border-radius:16px;padding:16px;margin-bottom:12px}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .metric{background:#222731;border-radius:12px;padding:12px}
+    .metric span{display:block;color:#aeb5c1;font-size:12px;margin-bottom:4px}
+    .metric strong{font-size:24px}
+    .big strong{font-size:36px}
+    .controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    button,select,input{width:100%;border:0;border-radius:12px;padding:13px;font-size:16px}
+    button{font-weight:700;background:#fff;color:#111}
+    button.secondary{background:#2b303a;color:#fff}
+    button.warn{background:#5a2424;color:#fff}
+    label{display:block;color:#aeb5c1;font-size:13px;margin-bottom:6px}
+    .status{font-size:18px;font-weight:700;margin-bottom:6px}
+    .note{font-size:13px;color:#aeb5c1;line-height:1.45}
+    .errors{display:flex;gap:8px;margin-top:8px}
+    .dot{width:18px;height:18px;border-radius:50%;border:2px solid #59606d}
+    .dot.on{background:#ff6b6b;border-color:#ff6b6b}
+    .log{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;font-size:12px;line-height:1.4;max-height:180px;overflow:auto;background:#101218;border-radius:10px;padding:10px}
+    .waiting{color:#ffd479}
+    .ok{color:#9be3a5}
+    .bad{color:#ff9b9b}
+    @media(min-width:640px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}.controls{grid-template-columns:repeat(4,minmax(0,1fr))}}
   </style>
 </head>
 <body>
   <main class="app">
     <a class="back" href="./index.html">← Índice</a>
+    <h1>Platform Challenge · Simulador</h1>
+    <p class="sub">Versión de prueba en modo texto para validar la lógica de niveles antes de crear el juego gráfico.</p>
+
     <section class="card">
-      <h1>Platform Challenge</h1>
-      <p>Base preparada para la segunda webapp del proyecto.</p>
-      <div class="state">
-        <strong>En construcción</strong>
-        Completar aquí la mecánica, interfaz y conexión con el detector de cadencia según la especificación que definamos.
+      <div class="grid">
+        <div class="metric big"><span>Nivel</span><strong id="level">1</strong></div>
+        <div class="metric big"><span>RPM objetivo</span><strong id="targetRpm">50</strong></div>
+        <div class="metric"><span>Plataforma</span><strong id="platform">1 / 6</strong></div>
+        <div class="metric"><span>Fallos</span><strong id="failures">0 / 3</strong><div class="errors" id="errorDots"></div></div>
       </div>
     </section>
+
+    <section class="card">
+      <div class="grid">
+        <div class="metric"><span>Vueltas / plataforma</span><strong id="revsPerPlatform">10</strong></div>
+        <div class="metric"><span>Vueltas realizadas</span><strong id="currentRevs">0 / 10</strong></div>
+        <div class="metric"><span>Tiempo plataforma</span><strong id="platformTime">12.00 s</strong></div>
+        <div class="metric"><span>Tiempo restante</span><strong id="remaining">12.00 s</strong></div>
+        <div class="metric"><span>Plataformas nivel</span><strong id="platformCount">6</strong></div>
+        <div class="metric"><span>Vueltas nivel</span><strong id="levelRevs">0 / 60</strong></div>
+        <div class="metric"><span>Duración teórica nivel</span><strong id="levelDuration">72.0 s</strong></div>
+        <div class="metric"><span>Estado</span><strong id="stateText">Preparado</strong></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <label for="distance">Distancia entre plataformas</label>
+      <select id="distance">
+        <option value="8">8 vueltas</option>
+        <option value="9">9 vueltas</option>
+        <option value="10" selected>10 vueltas</option>
+        <option value="11">11 vueltas</option>
+        <option value="12">12 vueltas</option>
+        <option value="13">13 vueltas</option>
+        <option value="14">14 vueltas</option>
+        <option value="15">15 vueltas</option>
+      </select>
+      <p class="note">Al cambiar este valor, se recalculan automáticamente el número de plataformas y el tiempo por plataforma para mantener cada nivel alrededor de 72 segundos.</p>
+    </section>
+
+    <section class="card">
+      <div class="status" id="status">Pulsa “Iniciar nivel”.</div>
+      <div class="controls">
+        <button id="start">Iniciar nivel</button>
+        <button id="pedal">+1 vuelta pedal</button>
+        <button id="forceFail" class="warn">Simular fallo</button>
+        <button id="reset" class="secondary">Reiniciar prueba</button>
+      </div>
+      <p class="note">Cuando completas las vueltas antes del pitido, la plataforma queda alcanzada y esperas hasta que termine el tiempo del tramo. Si no llegas, se suma un fallo. Al completar un nivel se resta un fallo acumulado: 2→1, 1→0, 0→0.</p>
+    </section>
+
+    <section class="card">
+      <div class="status">Registro</div>
+      <div class="log" id="log">Simulador preparado.</div>
+    </section>
   </main>
+
+<script>
+const TARGET_LEVEL_DURATION = 72;
+const MAX_LEVEL = 20;
+let level=1, failures=0, platformIndex=1, currentRevs=0, totalLevelRevs=0;
+let running=false, reached=false, disqualified=false, deadline=0, timer=null;
+
+const el=id=>document.getElementById(id);
+const logEl=el('log');
+
+function targetRpm(){ return 50 + (level-1)*5; }
+function revsPerPlatform(){ return Number(el('distance').value); }
+function platformCount(){ return Math.max(1, Math.round(targetRpm()*TARGET_LEVEL_DURATION/(60*revsPerPlatform()))); }
+function platformTime(){ return revsPerPlatform()*60/targetRpm(); }
+function theoreticalLevelDuration(){ return platformCount()*revsPerPlatform()*60/targetRpm(); }
+
+function addLog(text){
+  const stamp=new Date().toLocaleTimeString();
+  logEl.textContent += "\n["+stamp+"] "+text;
+  logEl.scrollTop=logEl.scrollHeight;
+}
+
+function render(){
+  el('level').textContent=level;
+  el('targetRpm').textContent=targetRpm();
+  el('platform').textContent=platformIndex+" / "+platformCount();
+  el('failures').textContent=failures+" / 3";
+  el('revsPerPlatform').textContent=revsPerPlatform();
+  el('currentRevs').textContent=currentRevs+" / "+revsPerPlatform();
+  el('platformTime').textContent=platformTime().toFixed(2)+" s";
+  el('platformCount').textContent=platformCount();
+  el('levelRevs').textContent=totalLevelRevs+" / "+(platformCount()*revsPerPlatform());
+  el('levelDuration').textContent=theoreticalLevelDuration().toFixed(1)+" s";
+  const dots=el('errorDots'); dots.innerHTML='';
+  for(let i=0;i<3;i++){const d=document.createElement('i');d.className='dot'+(i<failures?' on':'');dots.appendChild(d);}
+  if(disqualified) el('stateText').textContent='Descalificado';
+  else if(!running) el('stateText').textContent='Preparado';
+  else if(reached) el('stateText').textContent='Esperando pitido';
+  else el('stateText').textContent='Pedaleando';
+}
+
+function startPlatform(){
+  if(disqualified || level>MAX_LEVEL) return;
+  currentRevs=0; reached=false; running=true;
+  deadline=performance.now()+platformTime()*1000;
+  el('status').textContent="Nivel "+level+" · Plataforma "+platformIndex+": completa "+revsPerPlatform()+" vueltas antes del pitido.";
+  addLog("Inicio N"+level+" P"+platformIndex+" · "+targetRpm()+" RPM · "+revsPerPlatform()+" vueltas · "+platformTime().toFixed(2)+" s.");
+  clearInterval(timer);
+  timer=setInterval(tick,50);
+  render();
+}
+
+function tick(){
+  if(!running) return;
+  const rem=Math.max(0,(deadline-performance.now())/1000);
+  el('remaining').textContent=rem.toFixed(2)+" s";
+  if(rem<=0){
+    clearInterval(timer);
+    if(!reached){
+      failures++;
+      addLog("FALLO: plataforma "+platformIndex+" no alcanzada a tiempo. Fallos: "+failures+"/3.");
+      if(failures>=3){
+        disqualified=true; running=false;
+        el('status').textContent="Descalificado: 3 fallos.";
+        el('remaining').textContent="0.00 s";
+        render(); return;
+      }
+    } else {
+      addLog("OK: plataforma "+platformIndex+" superada.");
+    }
+    advancePlatform();
+  }
+}
+
+function pedal(){
+  if(!running || reached || disqualified) return;
+  currentRevs++; totalLevelRevs++;
+  if(currentRevs>=revsPerPlatform()){
+    reached=true;
+    el('status').textContent="Plataforma alcanzada. Esperando al pitido para continuar…";
+    addLog("Objetivo de vueltas alcanzado antes del límite.");
+  }
+  render();
+}
+
+function advancePlatform(){
+  running=false;
+  if(platformIndex>=platformCount()){
+    addLog("NIVEL "+level+" COMPLETADO con "+failures+" fallo(s).");
+    failures=Math.max(0,failures-1);
+    if(level>=MAX_LEVEL){
+      el('status').textContent="Prueba completada: nivel 20 superado.";
+      el('stateText').textContent='Completado';
+      render(); return;
+    }
+    level++; platformIndex=1; totalLevelRevs=0;
+    addLog("Paso a nivel "+level+". Fallos tras reducción: "+failures+".");
+  } else {
+    platformIndex++;
+  }
+  setTimeout(startPlatform,400);
+  render();
+}
+
+function forceFail(){
+  if(disqualified) return;
+  if(!running){ addLog("No hay una plataforma activa."); return; }
+  reached=false; currentRevs=0; deadline=performance.now();
+}
+
+function resetAll(){
+  clearInterval(timer);
+  level=1; failures=0; platformIndex=1; currentRevs=0; totalLevelRevs=0;
+  running=false; reached=false; disqualified=false;
+  el('remaining').textContent=platformTime().toFixed(2)+" s";
+  el('status').textContent='Pulsa “Iniciar nivel”.';
+  logEl.textContent='Simulador reiniciado.';
+  render();
+}
+
+el('start').onclick=()=>{
+  if(disqualified){resetAll();return;}
+  if(!running) startPlatform();
+};
+el('pedal').onclick=pedal;
+el('forceFail').onclick=forceFail;
+el('reset').onclick=resetAll;
+el('distance').onchange=()=>{
+  if(running){ clearInterval(timer); running=false; }
+  platformIndex=1; currentRevs=0; totalLevelRevs=0; reached=false;
+  el('remaining').textContent=platformTime().toFixed(2)+" s";
+  el('status').textContent='Configuración actualizada. Pulsa “Iniciar nivel”.';
+  addLog("Distancia cambiada a "+revsPerPlatform()+" vueltas/plataforma.");
+  render();
+};
+
+el('remaining').textContent=platformTime().toFixed(2)+" s";
+render();
+</script>
 </body>
 </html>
