@@ -19,7 +19,7 @@
     }
     return samples;
   }
-  function analyze(h,type) {
+  function analyzeWindow(h,type) {
     const minAmp=type==='angle'?12:.12;
     if(h.length<30 || h.at(-1).t-h[0].t<1700)return null;
     const recent=h.filter(s=>h.at(-1).t-s.t<=900);
@@ -27,7 +27,12 @@
     const q=h.slice(-20).reduce((s,x)=>s+x.q,0)/Math.min(h.length,20);
     const amp=span(h.map(s=>s.v));
     if(q<.5 || amp<minAmp)return null;
-    const xs=regularize(h), candidates=[];
+    const raw=regularize(h);
+    const clean=raw.map((v,i)=>median(raw.slice(Math.max(0,i-1),Math.min(raw.length,i+2))));
+    const xs=clean.map((v,i)=>{
+      const window=clean.slice(Math.max(0,i-24),Math.min(clean.length,i+25));
+      return v-window.reduce((sum,x)=>sum+x,0)/window.length;
+    }), candidates=[];
     // 25–180 rpm. A valid estimate needs at least 2.5 periods of evidence.
     const minLag=Math.ceil(60000/180/50), maxLag=Math.min(Math.floor(60000/25/50),Math.floor((xs.length-1)/2.5));
     if(maxLag<minLag)return null;
@@ -35,38 +40,47 @@
     for(let lag=minLag-1;lag<=maxLag+1;lag++)cs[lag]=correlation(xs.slice(lag),xs.slice(0,-lag));
     for(let lag=minLag;lag<=maxLag;lag++){
       const c=cs[lag];
-      if(c<.72 || c<cs[lag-1] || c<cs[lag+1])continue;
+      if(c<.55 || c<cs[lag-1] || c<cs[lag+1])continue;
       const half=Math.round(lag/2), opposite=correlation(xs.slice(half),xs.slice(0,-half));
-      if(opposite>-.15)continue; // monotone drift and flat trajectories are not cycles.
+      if(opposite>0)continue; // monotone drift and flat trajectories are not cycles.
       candidates.push({lag,c});
     }
     if(!candidates.length)return null;
     // Prefer the fundamental, avoiding the 2x/3x-period peaks of autocorrelation.
-    const strongest=Math.max(...candidates.map(x=>x.c));
-    const pick=candidates.find(x=>x.c>=strongest-.08);
+    const pick=candidates[0];
     const denominator=cs[pick.lag-1]-2*pick.c+cs[pick.lag+1];
     const sub=denominator ? clamp(.5*(cs[pick.lag-1]-cs[pick.lag+1])/denominator,-.5,.5) : 0;
     const period=(pick.lag+sub)*50;
     return {rpm:60000/period,period,quality:q*pick.c*clamp(amp/minAmp,0,1),amp};
   }
+  function analyze(h,type){
+    const end=h.at(-1)?.t;if(end===undefined)return null;
+    let best=null;
+    for(const duration of [3000,4500,6500]){
+      const samples=h.filter(x=>end-x.t<=duration);
+      const estimate=analyzeWindow(samples,type);
+      if(estimate && (!best || estimate.quality>best.quality))best=estimate;
+    }
+    return best;
+  }
   class CadenceDetector {
     constructor(){this.reset();}
-    reset(){this.signals=new Map();this.lastTime=-Infinity;this.best=null;this.cycles=0;this.lastAccepted=-Infinity;this.lastValid=-Infinity;this.rpm=null;this.lastAnalysis=-Infinity;this.result={rpm:null,cycles:0,quality:0,method:null,state:'waiting'};}
+    reset(){this.signals=new Map();this.lastTime=-Infinity;this.best=null;this.cycles=0;this.lastAccepted=-Infinity;this.lastValid=-Infinity;this.rpm=null;this.lastAnalysis=-Infinity;this.lastObservation=-Infinity;this.acceptedRpm=null;this.pendingRpm=null;this.pendingSince=0;this.pendingSeen=-Infinity;this.result={rpm:null,cycles:0,quality:0,method:null,state:'waiting'};}
     noMotion(t){
       if(t<=this.lastTime)return this.result;
       this.lastTime=t;
-      this.signals.clear();this.best=null;this.rpm=null;this.lastValid=-Infinity;this.lastAccepted=-Infinity;
+      this.signals.clear();this.best=null;this.rpm=null;this.lastValid=-Infinity;this.lastAccepted=-Infinity;this.acceptedRpm=null;this.pendingRpm=null;
       this.result={rpm:0,cycles:this.cycles,quality:0,method:null,state:'still'};return this.result;
     }
     missing(t){
       if(t<=this.lastTime)return this.result;
-      this.lastTime=t;this.signals.clear();this.best=null;this.rpm=null;this.lastAccepted=-Infinity;
+      this.lastTime=t;if(t-this.lastObservation>300){this.signals.clear();this.best=null;this.lastAccepted=-Infinity;this.acceptedRpm=null;this.pendingRpm=null;}this.rpm=null;
       this.result={rpm:null,cycles:this.cycles,quality:0,method:null,state:'missing'};return this.result;
     }
     update(t,values){
       if(!Number.isFinite(t)||t<=this.lastTime)return this.result; // never count a repeated decoded frame.
-      if(this.lastTime!==-Infinity && t-this.lastTime>300){this.signals.clear();this.best=null;this.rpm=null;this.lastAccepted=-Infinity;}
-      this.lastTime=t;
+      if(this.lastObservation!==-Infinity && t-this.lastObservation>300){this.signals.clear();this.best=null;this.rpm=null;this.lastAccepted=-Infinity;this.acceptedRpm=null;this.pendingRpm=null;}
+      this.lastTime=t;this.lastObservation=t;
       const valid=new Set();
       for(const value of values){
         const {name,v,q,type='position'}=value;
@@ -76,19 +90,43 @@
         if(!s){s={h:[],type,estimate:null,armed:false,peak:null,lastCycle:null};this.signals.set(name,s);}
         s.h.push({t,v,q});while(s.h.length && t-s.h[0].t>6500)s.h.shift();
       }
-      for(const name of this.signals.keys())if(!valid.has(name))this.signals.delete(name);
+      for(const [name,s] of this.signals)if(t-s.h.at(-1).t>300)this.signals.delete(name);
       if(t-this.lastAnalysis>=180){
         this.lastAnalysis=t;
         for(const s of this.signals.values())s.estimate=analyze(s.h,s.type);
       }
       let chosen=null,score=0;
-      for(const [name,s] of this.signals){if(s.estimate?.quality>score){chosen=name;score=s.estimate.quality;}}
-      const previous=this.signals.get(this.best);
-      if(previous?.estimate && previous.estimate.quality>=score*.85){chosen=this.best;score=previous.estimate.quality;}
+      const candidates=[...this.signals].filter(([name,s])=>valid.has(name)&&s.estimate);
+      for(const [name,s] of candidates){
+        const matching=candidates.filter(([,v])=>Math.abs(v.estimate.rpm-s.estimate.rpm)<s.estimate.rpm*.10);
+        if(matching.length<2 && s.estimate.quality<.45)continue;
+        const sc=matching.reduce((sum,[,v])=>sum+v.estimate.quality,0);
+        if(sc>score){chosen=name;score=sc;}
+      }
+      if(chosen){
+        const target=this.signals.get(chosen).estimate.rpm;
+        const matching=candidates.filter(([,v])=>Math.abs(v.estimate.rpm-target)<target*.10);
+        matching.sort((a,b)=>b[1].estimate.quality-a[1].estimate.quality);
+        chosen=matching[0][0];
+        const previous=this.signals.get(this.best);
+        if(valid.has(this.best)&&previous?.estimate&&Math.abs(previous.estimate.rpm-target)<target*.10&&previous.estimate.quality>=matching[0][1].estimate.quality*.85)chosen=this.best;
+      }
+      if(chosen){
+        const estimate=this.signals.get(chosen).estimate;
+        if(this.acceptedRpm===null || Math.abs(estimate.rpm-this.acceptedRpm)>this.acceptedRpm*.15){
+          if(this.pendingRpm===null || Math.abs(estimate.rpm-this.pendingRpm)>this.pendingRpm*.12 || t-this.pendingSeen>350){
+            this.pendingRpm=estimate.rpm;this.pendingSince=t;
+          }
+          this.pendingSeen=t;
+          if(t-this.pendingSince<600)chosen=null;
+          else{this.acceptedRpm=estimate.rpm;this.pendingRpm=null;}
+        }else{this.acceptedRpm=this.acceptedRpm*.9+estimate.rpm*.1;this.pendingRpm=null;}
+      }
       this.best=chosen;
       // Every signal keeps its own phase and period. No shared peak-time between knees/feet.
-      for(const s of this.signals.values()){
+      for(const [name,s] of this.signals){
         s.lastCycle=null;
+        if(!valid.has(name))continue;
         if(!s.estimate){s.armed=false;s.peak=null;continue;}
         const tail=s.h.filter(x=>t-x.t<=Math.max(1000,s.estimate.period*1.8));
         const low=Math.min(...tail.map(x=>x.v)),high=Math.max(...tail.map(x=>x.v)), latest=s.h.at(-1);
@@ -128,7 +166,9 @@
     const signals=[];
     for(const [side,hi,ki,ai] of [['Izq.',23,25,27],['Der.',24,26,28]]){
       const h=p[hi],k=p[ki],a=p[ai];
-      signals.push({name:'Ángulo '+side,v:angle(h,k,a),q:visibility(h,k,a),type:'angle',points:[hi,ki,ai]},
+      const upper=dist(h,k),lower=dist(k,a),bend=angle(h,k,a);
+      const reliableAngle=upper>torso*.3&&lower>torso*.3&&upper/lower>.4&&upper/lower<2.5&&bend>=20;
+      signals.push({name:'Ángulo '+side,v:bend,q:reliableAngle?visibility(h,k,a):0,type:'angle',points:[hi,ki,ai]},
         {name:'Rodilla '+side,v:(k.y-h.y)/scale,q:visibility(h,k,p[11],p[12]),points:[hi,ki]},
         {name:'Pie '+side,v:(a.y-h.y)/scale,q:visibility(h,a,p[11],p[12]),points:[hi,ai]});
     }

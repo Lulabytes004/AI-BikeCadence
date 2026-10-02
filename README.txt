@@ -60,3 +60,15 @@ Rama de ocho ciclistas
   validación con vídeo real. No se garantiza tiempo real en todos los equipos.
 - Vídeos sintéticos de prueba: 10 s / 30 fps / 1920×1080, ocho paneles sin
   solapamiento y referencias de 50,60,70,80,90,100,110,120 RPM.
+
+Corrección tras probar los MP4 anteriores de dos ciclistas
+- Se conservan pérdidas de puntos de hasta 300 ms sin mostrar una lectura
+  cuando la persona o la señal no están visibles.
+- Mediana de tres muestras y eliminación de deriva lenta; comparación
+  de ventanas de 3, 4,5 y 6,5 s y concordancia de las señales.
+- Una cadencia nueva requiere 600 ms de estimaciones consistentes.
+- Se descartan ángulos con segmentos colapsados o geometría inverosímil.
+- Los fixtures ahora incluyen puntos detectados por MediaPipe en los tres
+  MP4 de dos ciclistas. Ver tests/VIDEO_VALIDATION.md para cifras y límites.
+- La vista lateral sigue ofreciendo lecturas intermitentes; el cambio no
+  acredita detección continua con ocho personas ni funcionamiento en GPU.
