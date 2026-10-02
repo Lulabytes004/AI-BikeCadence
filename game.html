@@ -23,6 +23,9 @@
     button{font-weight:700;background:#fff;color:#111}
     button.secondary{background:#2b303a;color:#fff}
     button.warn{background:#5a2424;color:#fff}
+    button.pressed{transform:scale(.96);filter:brightness(1.35)}
+    .feedback{margin-top:10px;min-height:22px;font-size:14px;font-weight:700;color:#9be3a5;opacity:0;transition:opacity .15s}
+    .feedback.show{opacity:1}
     label{display:block;color:#aeb5c1;font-size:13px;margin-bottom:6px}
     .status{font-size:18px;font-weight:700;margin-bottom:6px}
     .note{font-size:13px;color:#aeb5c1;line-height:1.45}
@@ -87,7 +90,8 @@
         <button id="forceFail" class="warn">Simular fallo</button>
         <button id="reset" class="secondary">Reiniciar prueba</button>
       </div>
-      <p class="note">Cuando completas las vueltas antes del pitido, la plataforma queda alcanzada y esperas hasta que termine el tiempo del tramo. Si no llegas, se suma un fallo. Al completar un nivel se resta un fallo acumulado: 2→1, 1→0, 0→0.</p>
+      <div id="feedback" class="feedback"></div>
+      <p class="note"><b>+1 vuelta pedal</b> simula manualmente una revolución completa de la biela. Sirve para probar la lógica antes de conectar la cámara. Cuando completas las vueltas antes del pitido, la plataforma queda alcanzada y esperas hasta que termine el tiempo del tramo. Si no llegas, se suma un fallo. Al completar un nivel se resta un fallo acumulado: 2→1, 1→0, 0→0.</p>
     </section>
 
     <section class="card">
@@ -101,8 +105,42 @@ const TARGET_LEVEL_DURATION = 72;
 const MAX_LEVEL = 20;
 let level=1, failures=0, platformIndex=1, currentRevs=0, totalLevelRevs=0;
 let running=false, reached=false, disqualified=false, deadline=0, timer=null;
+let audioCtx=null, feedbackTimer=null;
 
 const el=id=>document.getElementById(id);
+
+function ensureAudio(){
+  if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended') audioCtx.resume();
+}
+function tone(freq=700,duration=.07,volume=.06,type='sine'){
+  try{
+    ensureAudio();
+    const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+    o.type=type; o.frequency.value=freq;
+    g.gain.setValueAtTime(volume,audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+duration);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime+duration);
+  }catch(e){}
+}
+function navetteBeep(){
+  tone(1100,.18,.12,'square');
+}
+function buttonFeedback(button,text,sound=true){
+  ensureAudio();
+  if(sound) tone(520,.045,.035,'sine');
+  if(navigator.vibrate) navigator.vibrate(20);
+  if(button){
+    button.classList.add('pressed');
+    setTimeout(()=>button.classList.remove('pressed'),120);
+  }
+  const f=el('feedback');
+  f.textContent=text;
+  f.classList.add('show');
+  clearTimeout(feedbackTimer);
+  feedbackTimer=setTimeout(()=>f.classList.remove('show'),700);
+}
 const logEl=el('log');
 
 function targetRpm(){ return 50 + (level-1)*5; }
@@ -153,6 +191,7 @@ function tick(){
   el('remaining').textContent=rem.toFixed(2)+" s";
   if(rem<=0){
     clearInterval(timer);
+    navetteBeep();
     if(!reached){
       failures++;
       addLog("FALLO: plataforma "+platformIndex+" no alcanzada a tiempo. Fallos: "+failures+"/3.");
@@ -170,8 +209,12 @@ function tick(){
 }
 
 function pedal(){
-  if(!running || reached || disqualified) return;
+  if(!running || reached || disqualified){
+    buttonFeedback(el('pedal'), running?'Plataforma ya alcanzada':'Primero inicia el nivel', false);
+    return;
+  }
   currentRevs++; totalLevelRevs++;
+  buttonFeedback(el('pedal'), '+1 vuelta · '+currentRevs+'/'+revsPerPlatform(), true);
   if(currentRevs>=revsPerPlatform()){
     reached=true;
     el('status').textContent="Plataforma alcanzada. Esperando al pitido para continuar…";
@@ -216,12 +259,19 @@ function resetAll(){
 }
 
 el('start').onclick=()=>{
+  buttonFeedback(el('start'), running?'Nivel ya iniciado':'Nivel iniciado');
   if(disqualified){resetAll();return;}
   if(!running) startPlatform();
 };
 el('pedal').onclick=pedal;
-el('forceFail').onclick=forceFail;
-el('reset').onclick=resetAll;
+el('forceFail').onclick=()=>{
+  buttonFeedback(el('forceFail'),'Fallo simulado');
+  forceFail();
+};
+el('reset').onclick=()=>{
+  buttonFeedback(el('reset'),'Prueba reiniciada');
+  resetAll();
+};
 el('distance').onchange=()=>{
   if(running){ clearInterval(timer); running=false; }
   platformIndex=1; currentRevs=0; totalLevelRevs=0; reached=false;
