@@ -22,6 +22,11 @@
 <div class="timeline"><input id="seek" type="range" min="0" max="10" step=".001" value="0" aria-label="Posición del vídeo"><span id="time">0.00 / 0.00 s</span><label>Velocidad <select id="speed"><option value=".25">0,25×</option><option value=".5">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option></select></label></div>
 <p class="help">La cadencia utiliza el tiempo del archivo: cambiar la velocidad de reproducción no cambia las RPM. Pausar conserva la última medición; buscar otra posición reinicia el historial.</p>
 </div>
+<div class="panel">
+<div class="controls"><button id="scanZones" disabled>Volver a detectar zonas</button><label><input id="showZones" type="checkbox" checked> Mostrar zonas</label></div>
+<div id="zoneStatus" class="help" role="status">Las zonas se detectan automáticamente al reproducir el vídeo.</div>
+<p class="help">Zonas Z1–Z8: línea continua = bicicleta reconocida; discontinua = zona estimada por una persona, sin bicicleta confirmada. Mantén la cámara fija. Esta primera capa delimita las zonas; la medición de postura todavía analiza la imagen completa.</p>
+</div>
 <div id="cards" class="cards"><div class="card" style="--color:#7dd3fc"><div>Ciclista</div><div class="rpm">-- <small>RPM</small></div><div class="detail">Esperando vídeo o cámara.</div></div></div>
 <details class="panel"><summary>Pruebas y diagnóstico</summary>
 <p class="help">Introduce las RPM de referencia para cada número C1–C8 que aparece sobre la persona. El detector mantiene los números según la posición de la cadera; tras una ausencia prolongada puede asignarlos de nuevo.</p>
@@ -32,5 +37,5 @@
 </details>
 <p class="help">El detector compara rodillas y tobillos y exige movimiento periódico antes de mostrar RPM. Una persona que no se reconoce se muestra sin medición. Los dibujos esquemáticos pueden no ser reconocidos por el modelo de personas.</p>
 </main>
-<script src="./cadence.js"></script><script src="./measure.js" type="module"></script>
+<script src="./cadence.js"></script><script src="./bike-zones.js"></script><script src="./measure.js" type="module"></script>
 </body></html>

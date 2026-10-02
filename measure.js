@@ -4,6 +4,42 @@ const pixelCanvas=document.createElement('canvas');pixelCanvas.width=96;pixelCan
 const pixelCtx=pixelCanvas.getContext('2d',{willReadFrequently:true});
 const tracks=new globalThis.PoseTracks();
 const MAX_CYCLISTS=8;
+const bikeZones=new globalThis.BikeZones(MAX_CYCLISTS);
+const zoneCanvas=document.createElement('canvas'),zoneCtx=zoneCanvas.getContext('2d');
+let objectDetector=null,objectPromise=null,lastZoneScan=-Infinity,zoneScanCount=0,zoneFailure='',lastFound=[];
+async function initZones(){
+ if(objectDetector)return objectDetector;if(objectPromise)return objectPromise;
+ $('zoneStatus').textContent='Cargando detector de zonas…';
+ objectPromise=(async()=>{
+  const mod=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32');
+  const vision=await mod.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm');
+  objectDetector=await mod.ObjectDetector.createFromOptions(vision,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float32/1/efficientdet_lite0.tflite',delegate:'CPU'},runningMode:'IMAGE',scoreThreshold:.45,maxResults:30,categoryAllowlist:['bicycle','person']});
+  zoneFailure='';return objectDetector;
+ })();
+ try{return await objectPromise;}catch(e){zoneFailure='No se pudo cargar el detector de zonas. Pulsa Volver a detectar zonas para reintentar.';return null;}finally{objectPromise=null;}
+}
+function resetZones(){bikeZones.reset();lastZoneScan=-Infinity;zoneScanCount=0;}
+function scanZones(t,landmarks=[]){
+ if(!objectDetector||bikeZones.locked||zoneScanCount>=6||t-lastZoneScan<650||frozen)return;
+ lastZoneScan=t;zoneScanCount++;
+ const W=inputCanvas.width,H=inputCanvas.height,boxes=[];
+ // Whole image plus overlapping tiles: small bikes/people get more model pixels.
+ for(const [x,y,w,h] of [[0,0,1,1],[0,0,.6,.6],[.4,0,.6,.6],[0,.4,.6,.6],[.4,.4,.6,.6]]){
+  zoneCanvas.width=Math.round(W*w);zoneCanvas.height=Math.round(H*h);
+  zoneCtx.drawImage(inputCanvas,x*W,y*H,w*W,h*H,0,0,zoneCanvas.width,zoneCanvas.height);
+  for(const d of objectDetector.detect(zoneCanvas).detections??[]){
+   const c=d.categories?.[0],b=d.boundingBox;if(!c||!b)continue;
+   boxes.push({label:c.categoryName,score:c.score,x:x+b.originX/W,y:y+b.originY/H,w:b.width/W,h:b.height/H});
+  }
+ }
+ bikeZones.update([...boxes,...globalThis.poseZoneBoxes(landmarks)],t);
+ if(zoneScanCount>=6)bikeZones.lock();
+}
+function showZoneStatus(){
+ const zs=bikeZones.zones,bikes=zs.filter(z=>z.kind==='bicycle').length;
+ $('zoneStatus').textContent=zoneFailure||(zoneScanCount>=6?(zs.length?`${zs.length} zonas fijadas: ${bikes} bicicletas reconocidas y ${zs.length-bikes} estimadas por personas. Si falta alguna, vuelve a detectar con otra imagen.`:'No se confirmaron zonas. Prueba otra vista y vuelve a detectar.'):`Buscando zonas (${zoneScanCount}/6 muestras). Reproduce unos segundos para confirmarlas.`);
+}
+
 const colors=['#127fc4','#e77a24','#16875d','#9c4bc7','#cc4268','#078f9c','#9a7626','#475bd0'];
 let pose=null,PoseLandmarker,DrawingUtils,source=null,blobURL=null,session=0,requestId=null,loadId=0;
 let lastMediaTime=-1,lastModelTimestamp=0,lastInferenceWall=0,lastPixels=null,lastChangeTime=null,frozen=false;
@@ -25,7 +61,7 @@ async function initPose(){
  try{return await modelPromise;}finally{modelPromise=null;}
 }
 function clearData(){
- tracks.reset();lastMediaTime=-1;lastInferenceWall=0;lastPixels=null;lastChangeTime=null;records=[];poseRecords=[];
+ tracks.reset();lastMediaTime=-1;lastInferenceWall=0;lastPixels=null;lastChangeTime=null;records=[];poseRecords=[];resetZones();lastFound=[];showZoneStatus();
  $('freeze').checked=false;frozen=false;
  draw([]);render([]);diagnostic='Historial reiniciado.';$('diag').textContent=diagnostic;
 }
@@ -33,7 +69,7 @@ function cancelLoop(){session++;if(requestId!==null){if(video.cancelVideoFrameCa
 function releaseSource(){
  cancelLoop();video.pause();video.srcObject?.getTracks().forEach(t=>t.stop());video.srcObject=null;video.removeAttribute('src');video.load();
  if(blobURL){URL.revokeObjectURL(blobURL);blobURL=null;}
- source=null;clearData();$('camera').textContent='Iniciar cámara';$('play').disabled=true;$('step').disabled=true;$('videoControls').classList.add('hidden');
+ source=null;clearData();$('scanZones').disabled=true;$('camera').textContent='Iniciar cámara';$('play').disabled=true;$('step').disabled=true;$('videoControls').classList.add('hidden');
 }
 async function startCamera(){
  const token=++loadId;releaseSource();
@@ -42,9 +78,9 @@ async function startCamera(){
   setStatus('Solicitando cámara…');
   const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30}},audio:false});
   if(token!==loadId){stream.getTracks().forEach(t=>t.stop());return;}
-  source='camera';video.srcObject=stream;await video.play();await initPose();
+  source='camera';video.srcObject=stream;await video.play();await Promise.all([initPose(),initZones()]);
   if(token!==loadId)return;
-  $('camera').textContent='Detener cámara';$('sourceLabel').textContent='Cámara en directo';setStatus('Buscando ciclistas…');schedule();
+  $('scanZones').disabled=false;$('camera').textContent='Detener cámara';$('sourceLabel').textContent='Cámara en directo';setStatus('Buscando ciclistas…');schedule();
  }catch(e){if(token===loadId){releaseSource();error(e);}}
 }
 function once(target,event){return new Promise((resolve,reject)=>{
@@ -60,8 +96,8 @@ async function openFile(file){
   $('view').style.aspectRatio=`${video.videoWidth}/${video.videoHeight}`;
   $('videoControls').classList.remove('hidden');$('fileName').textContent=file.name;
   $('sourceLabel').textContent='Vídeo local · '+file.name;$('seek').max=video.duration;$('seek').value=0;
-  await initPose();if(token!==loadId)return;
-  $('play').disabled=false;$('step').disabled=false;setStatus('Vídeo listo · pulsa Reproducir');updateTime();processFrame(0);
+  await Promise.all([initPose(),initZones()]);if(token!==loadId)return;
+  $('scanZones').disabled=false;$('play').disabled=false;$('step').disabled=false;setStatus('Vídeo listo · pulsa Reproducir');updateTime();processFrame(0);
  }catch(e){if(token===loadId)error(e);}
 }
 function updateTime(){if(source==='file'){$('seek').value=video.currentTime;$('time').textContent=`${video.currentTime.toFixed(2)} / ${video.duration.toFixed(2)} s`;}}
@@ -97,8 +133,10 @@ function processFrame(mediaTime){
  // MediaPipe needs strictly increasing inference timestamps even after a seek/replay.
  lastModelTimestamp+=mediaDelta;
  const result=pose.detectForVideo(inputCanvas,lastModelTimestamp);
+ try{scanZones(t,result.landmarks??[]);}catch(e){zoneFailure='Error al detectar zonas: '+(e.message||String(e));zoneScanCount=6;}
+ showZoneStatus();
  const found=tracks.update(result.landmarks??[],t,video.videoWidth/video.videoHeight,still);
- render(found);draw(found);updateTime();record(t,found,result.landmarks??[],still);
+ lastFound=found;render(found);draw(found);updateTime();record(t,found,result.landmarks??[],still);
  setStatus(still?'Imagen quieta':found.length?'Analizando ciclistas…':'No veo una persona');
 }
 function render(found){
@@ -116,6 +154,13 @@ function render(found){
 }
 function draw(found){
  canvas.width=video.videoWidth||1280;canvas.height=video.videoHeight||720;ctx.clearRect(0,0,canvas.width,canvas.height);
+ if($('showZones').checked){
+  for(const z of bikeZones.zones){
+   const color=colors[(z.id-1)%colors.length];ctx.strokeStyle=color;ctx.lineWidth=3;ctx.setLineDash(z.kind==='bicycle'?[]:[10,7]);
+   ctx.strokeRect(z.x*canvas.width,z.y*canvas.height,z.w*canvas.width,z.h*canvas.height);ctx.setLineDash([]);
+   ctx.font='bold 18px system-ui';ctx.fillStyle=color;ctx.fillText('Z'+z.id+(z.kind==='occupied'?' · estimada':''),z.x*canvas.width+4,Math.max(20,z.y*canvas.height+20));
+  }
+ }
  if(!DrawingUtils)return;
  const drawing=new DrawingUtils(ctx);
  for(const track of found){if(!track.lm)continue;const color=colors[(track.id-1)%colors.length];
@@ -157,10 +202,19 @@ $('freeze').onchange=()=>{if($('freeze').checked){inputCanvas.width=video.videoW
 video.addEventListener('ended',()=>{cancelLoop();$('play').textContent='Reproducir';setStatus('Vídeo terminado · resultados conservados');});
 video.addEventListener('error',()=>{if(source)error(new Error('No se pudo decodificar el vídeo. Usa MP4 H.264.'));});
 $('export').onclick=()=>{const keys=['time_ms','cyclist','rpm','reference_rpm','quality','method','state','cycles','frozen_pixels'];const csv=keys.join(',')+'\n'+records.map(r=>keys.map(k=>JSON.stringify(r[k]??'')).join(',')).join('\n');download('cadence-diagnostic.csv',csv,'text/csv');};
-$('landmarks').onclick=()=>download('cadence-landmarks.json',JSON.stringify({version:1,source:source==='file'?$('fileName').textContent:'camera',width:video.videoWidth,height:video.videoHeight,references:Array.from({length:MAX_CYCLISTS},(_,i)=>$('expected'+(i+1)).value).map(x=>x===''?null:Number(x)),frames:poseRecords}),'application/json');
+$('landmarks').onclick=()=>download('cadence-landmarks.json',JSON.stringify({version:2,zones:bikeZones.zones,zones_locked:bikeZones.locked,source:source==='file'?$('fileName').textContent:'camera',width:video.videoWidth,height:video.videoHeight,references:Array.from({length:MAX_CYCLISTS},(_,i)=>$('expected'+(i+1)).value).map(x=>x===''?null:Number(x)),frames:poseRecords}),'application/json');
 // A local harness can inject a compatible pose model and run the same UI pipeline.
 // It is opt-in and cannot be activated from arbitrary URL data.
 if(new URLSearchParams(location.search).has('test'))window.cadenceDebug={
- setModel(model){pose=model;},openFile,processFrame,seekTo,
- get records(){return records;},get poseRecords(){return poseRecords;},get tracks(){return tracks;}
+ setModel(model){pose=model;},setZoneModel(model){objectDetector=model;},openFile,processFrame,seekTo,
+ get records(){return records;},get poseRecords(){return poseRecords;},get tracks(){return tracks;},get zones(){return bikeZones;}
+};
+
+$('showZones').onchange=()=>draw(lastFound);
+$('scanZones').onclick=async()=>{
+ resetZones();zoneFailure='';$('scanZones').disabled=true;showZoneStatus();draw(lastFound);
+ const token=loadId;await initZones();if(token!==loadId)return;
+ $('scanZones').disabled=!source;
+ if(source&&video.readyState>=2){sourcePixels();try{scanZones(video.currentTime*1000);}catch(e){zoneFailure='Error al detectar zonas: '+(e.message||String(e));zoneScanCount=6;}}
+ showZoneStatus();draw(lastFound);
 };
