@@ -63,6 +63,7 @@
         <div class="metric"><span>Plataformas nivel</span><strong id="platformCount">6</strong></div>
         <div class="metric"><span>Vueltas nivel</span><strong id="levelRevs">0 / 60</strong></div>
         <div class="metric"><span>Vueltas totales</span><strong id="sessionRevs">0</strong></div>
+        <div class="metric"><span>Tiempo total</span><strong id="elapsedTime">00:00</strong></div>
         <div class="metric"><span>Duración teórica nivel</span><strong id="levelDuration">72.0 s</strong></div>
         <div class="metric"><span>Estado</span><strong id="stateText">Preparado</strong></div>
       </div>
@@ -105,6 +106,7 @@
 const TARGET_LEVEL_DURATION = 72;
 const MAX_LEVEL = 20;
 let level=1, failures=0, platformIndex=1, currentRevs=0, totalLevelRevs=0, totalSessionRevs=0;
+let sessionStartTime=null, elapsedBeforePause=0;
 let running=false, reached=false, disqualified=false, deadline=0, timer=null;
 let audioCtx=null, feedbackTimer=null;
 
@@ -156,6 +158,18 @@ function addLog(text){
   logEl.scrollTop=logEl.scrollHeight;
 }
 
+function formatElapsed(ms){
+  const totalSec=Math.floor(ms/1000);
+  const h=Math.floor(totalSec/3600);
+  const m=Math.floor((totalSec%3600)/60);
+  const sec=totalSec%60;
+  return h>0
+    ? String(h).padStart(2,'0')+":"+String(m).padStart(2,'0')+":"+String(sec).padStart(2,'0')
+    : String(m).padStart(2,'0')+":"+String(sec).padStart(2,'0');
+}
+function currentElapsedMs(){
+  return elapsedBeforePause + (sessionStartTime!==null ? performance.now()-sessionStartTime : 0);
+}
 function render(){
   el('level').textContent=level;
   el('targetRpm').textContent=targetRpm();
@@ -167,6 +181,7 @@ function render(){
   el('platformCount').textContent=platformCount();
   el('levelRevs').textContent=totalLevelRevs+" / "+(platformCount()*revsPerPlatform());
   el('sessionRevs').textContent=totalSessionRevs;
+  el('elapsedTime').textContent=formatElapsed(currentElapsedMs());
   el('levelDuration').textContent=theoreticalLevelDuration().toFixed(1)+" s";
   const dots=el('errorDots'); dots.innerHTML='';
   for(let i=0;i<3;i++){const d=document.createElement('i');d.className='dot'+(i<failures?' on':'');dots.appendChild(d);}
@@ -178,6 +193,7 @@ function render(){
 
 function startPlatform(){
   if(disqualified || level>MAX_LEVEL) return;
+  if(sessionStartTime===null && elapsedBeforePause===0) sessionStartTime=performance.now();
   currentRevs=0; reached=false; running=true;
   deadline=performance.now()+platformTime()*1000;
   el('status').textContent="Nivel "+level+" · Plataforma "+platformIndex+": completa "+revsPerPlatform()+" vueltas antes del pitido.";
@@ -188,6 +204,7 @@ function startPlatform(){
 }
 
 function tick(){
+  el('elapsedTime').textContent=formatElapsed(currentElapsedMs());
   if(!running) return;
   const rem=Math.max(0,(deadline-performance.now())/1000);
   el('remaining').textContent=rem.toFixed(2)+" s";
@@ -253,6 +270,7 @@ function forceFail(){
 function resetAll(){
   clearInterval(timer);
   level=1; failures=0; platformIndex=1; currentRevs=0; totalLevelRevs=0; totalSessionRevs=0;
+  sessionStartTime=null; elapsedBeforePause=0;
   running=false; reached=false; disqualified=false;
   el('remaining').textContent=platformTime().toFixed(2)+" s";
   el('status').textContent='Pulsa “Iniciar nivel”.';
