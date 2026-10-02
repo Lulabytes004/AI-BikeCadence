@@ -271,6 +271,11 @@ el('forceFail').onclick=()=>{
   forceFail();
 };
 el('reset').onclick=()=>{
+  const ok=window.confirm('¿Seguro que quieres reiniciar la prueba?');
+  if(!ok){
+    buttonFeedback(el('reset'),'Reinicio cancelado',false);
+    return;
+  }
   buttonFeedback(el('reset'),'Prueba reiniciada');
   resetAll();
 };
