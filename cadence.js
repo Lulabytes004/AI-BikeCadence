@@ -136,20 +136,41 @@
     return signals;
   }
   class PoseTracks {
-    constructor(){this.tracks=[];this.nextId=1;}
-    reset(){this.tracks=[];this.nextId=1;}
+    constructor(maxTracks=8){this.maxTracks=maxTracks;this.tracks=[];}
+    reset(){this.tracks=[];}
     update(poses,t,aspect=1,still=false){
-      const available=new Set(this.tracks.filter(x=>t-x.seen<1200));
-      const ordered=poses.map(lm=>({lm,x:(lm[23].x+lm[24].x)/2,y:(lm[23].y+lm[24].y)/2})).sort((a,b)=>a.x-b.x);
-      for(const p of ordered){
-        let track=null,distance=.28;
-        for(const candidate of available){const d=Math.hypot((p.x-candidate.x)*aspect,p.y-candidate.y);if(d<distance){track=candidate;distance=d;}}
-        if(!track){track={id:this.nextId++,detector:new CadenceDetector()};this.tracks.push(track);}
-        available.delete(track);Object.assign(track,p,{seen:t});
+      this.tracks=this.tracks.filter(x=>t-x.seen<1200);
+      const existing=this.tracks.slice();
+      const ordered=poses.slice(0,this.maxTracks).map(lm=>({lm,x:(lm[23].x+lm[24].x)/2,y:(lm[23].y+lm[24].y)/2})).sort((a,b)=>Math.round(a.y/.18)-Math.round(b.y/.18)||a.x-b.x);
+      // Minimum-total-distance assignment; eight tracks need at most 256 masks.
+      // An unmatched pose costs .28, so a distant person cannot steal a history.
+      const memo=new Map();
+      function assign(i,mask){
+        if(i===ordered.length)return {cost:0,matches:[]};
+        const key=i+':'+mask;if(memo.has(key))return memo.get(key);
+        const next=assign(i+1,mask);let best={cost:.28+next.cost,matches:[-1,...next.matches]};
+        for(let j=0;j<existing.length;j++){
+          if(mask&(1<<j))continue;
+          const d=Math.hypot((ordered[i].x-existing[j].x)*aspect,ordered[i].y-existing[j].y);
+          if(d>=.28)continue;
+          const rest=assign(i+1,mask|(1<<j)),cost=d+rest.cost;
+          if(cost<best.cost)best={cost,matches:[j,...rest.matches]};
+        }
+        memo.set(key,best);return best;
+      }
+      const matches=assign(0,0).matches,seen=new Set();
+      for(let i=0;i<ordered.length;i++){
+        const p=ordered[i];let track=matches[i]===-1?null:existing[matches[i]];
+        if(!track){
+          if(this.tracks.length>=this.maxTracks)continue;
+          const used=new Set(this.tracks.map(x=>x.id));let id=1;while(used.has(id))id++;
+          track={id,detector:new CadenceDetector()};this.tracks.push(track);
+        }
+        seen.add(track);Object.assign(track,p,{seen:t});
         track.signals=poseSignals(p.lm,aspect);track.result=still?track.detector.noMotion(t):track.detector.update(t,track.signals);
       }
-      for(const track of available){track.result=track.detector.missing(t);track.lm=null;}
-      this.tracks=this.tracks.filter(x=>t-x.seen<1200);
+      for(const track of this.tracks)if(!seen.has(track)){track.result=track.detector.missing(t);track.lm=null;}
+      this.tracks.sort((a,b)=>a.id-b.id);
       return this.tracks;
     }
     still(t){for(const track of this.tracks)track.result=track.detector.noMotion(t);return this.tracks;}

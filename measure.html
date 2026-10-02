@@ -10,7 +10,7 @@
 <body><main class="app">
 <a href="./index.html">← Índice</a>
 <div class="top"><div class="title">Bike Cadence Vision</div><div id="status" class="status">Preparado</div></div>
-<div id="sourceLabel">Cámara o archivo de vídeo · análisis de hasta dos ciclistas</div>
+<div id="sourceLabel">Cámara o archivo de vídeo · análisis de hasta ocho ciclistas</div>
 <div class="view" id="view"><video id="video" playsinline muted preload="auto"></video><canvas id="overlay"></canvas></div>
 <div class="controls">
 <button id="camera" class="primary">Iniciar cámara</button>
@@ -24,8 +24,8 @@
 </div>
 <div id="cards" class="cards"><div class="card" style="--color:#7dd3fc"><div>Ciclista</div><div class="rpm">-- <small>RPM</small></div><div class="detail">Esperando vídeo o cámara.</div></div></div>
 <details class="panel"><summary>Pruebas y diagnóstico</summary>
-<p class="help">Para comparar con una referencia, introduce las RPM de izquierda a derecha al inicio del vídeo. Los números de ciclista siguen la posición de la cadera.</p>
-<div class="settings"><label>Referencia 1 <input id="expected1" type="number" min="0" max="180" step="1" placeholder="RPM" style="width:75px"></label><label>Referencia 2 <input id="expected2" type="number" min="0" max="180" step="1" placeholder="RPM" style="width:75px"></label><label>FPS para avanzar <input id="fps" type="number" min="1" max="120" value="30" style="width:70px"></label><label><input id="freeze" type="checkbox"> Congelar imagen de entrada</label></div>
+<p class="help">Introduce las RPM de referencia para cada número C1–C8 que aparece sobre la persona. El detector mantiene los números según la posición de la cadera; tras una ausencia prolongada puede asignarlos de nuevo.</p>
+<div class="settings"><label>Referencia 1 <input id="expected1" type="number" min="0" max="180" step="1" placeholder="RPM" style="width:75px"></label><label>Referencia 2 <input id="expected2" type="number" min="0" max="180" step="1" placeholder="RPM" style="width:75px"></label><label>Referencia 3 <input id="expected3" type="number" min="0" max="180" step="1" placeholder="RPM" style="width:75px"></label><label>Referencia 4 <input id="expected4" type="number" min="0" max="180" step="1" placeholder="RPM" style="width:75px"></label><label>Referencia 5 <input id="expected5" type="number" min="0" max="180" step="1" placeholder="RPM" style="width:75px"></label><label>Referencia 6 <input id="expected6" type="number" min="0" max="180" step="1" placeholder="RPM" style="width:75px"></label><label>Referencia 7 <input id="expected7" type="number" min="0" max="180" step="1" placeholder="RPM" style="width:75px"></label><label>Referencia 8 <input id="expected8" type="number" min="0" max="180" step="1" placeholder="RPM" style="width:75px"></label><label>FPS para avanzar <input id="fps" type="number" min="1" max="120" value="30" style="width:70px"></label><label><input id="freeze" type="checkbox"> Congelar imagen de entrada</label></div>
 <p class="help">“Congelar” repite exactamente el mismo fotograma mientras el tiempo del vídeo avanza: prueba que la cadencia cae a cero. Un cuadro repetido no puede generar ciclos nuevos.</p>
 <div class="controls"><button id="export">Exportar diagnóstico CSV</button><button id="landmarks">Exportar puntos JSON</button></div>
 <div id="diag">Preparado.</div>

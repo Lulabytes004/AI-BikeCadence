@@ -1,4 +1,4 @@
-BIKE CADENCE VISION v0.3 — cámara y vídeo local
+BIKE CADENCE VISION v0.4 — rama feat/eight-cyclists — cámara y vídeo local
 
 Medición: measure.html. Juego de plataformas: game.html.
 
@@ -7,16 +7,15 @@ Uso
 2. Elegir “Iniciar cámara” o “Cargar vídeo” (MP4 H.264 recomendado).
 3. El vídeo se procesa en el dispositivo; no se envía a un servidor.
    La primera carga descarga MediaPipe y su modelo desde sus CDN.
-4. Puede analizar hasta dos ciclistas con historiales independientes.
+4. Puede analizar hasta ocho ciclistas con historiales independientes.
 5. Reproducir, pausar, cambiar velocidad o avanzar un fotograma.
    Ajustar los FPS de avance al archivo (30 para los ejemplos).
 6. Al buscar otra posición o repetir el vídeo, se reinicia la medición.
    Al pausar se conserva el último resultado, sin añadir ciclos.
 
 Pruebas reproducibles
-- Abrir “Pruebas y diagnóstico” y escribir las RPM conocidas según el orden
-  izquierda/derecha inicial. Ejemplo: azul 85 y naranja 65; comprobar el orden
-  en cada perspectiva.
+- Abrir “Pruebas y diagnóstico” y escribir las RPM conocidas según los
+  números C1–C8 que aparecen sobre cada persona.
 - Activar “Congelar imagen de entrada” durante reproducción. Tras 650 ms de
   cuadros idénticos, la lectura debe ser 0 y no debe contar nuevos ciclos.
 - Exportar CSV para revisar RPM, confianza, método y ciclos por fotograma.
@@ -48,6 +47,16 @@ Límites de esta versión
   Se necesitan clips reales para ajustar los umbrales y validar la pose.
 - Se cuentan ciclos confirmados después de adquirir la periodicidad; no se
   reconstruyen las primeras vueltas del clip.
-- Identificación por proximidad de cadera: adecuada para bicicletas fijas;
+- Identificación por asignación global de caderas (hasta ocho): adecuada para bicicletas fijas;
   puede perder la identidad si las personas se cruzan u ocultan.
 - Registro exportable limitado a los últimos 10 minutos por sesión.
+
+Rama de ocho ciclistas
+- Configura MediaPipe con numPoses=8, ocho colores y ocho referencias RPM.
+- Mantiene como máximo ocho historiales con números reutilizables tras una
+  ausencia de 1,2 s. La asignación global evita que un emparejamiento voraz
+  mezcle dos personas cercanas. No es un sistema de reconocimiento personal.
+- El reconocimiento de ocho cuerpos y el rendimiento en móvil requieren
+  validación con vídeo real. No se garantiza tiempo real en todos los equipos.
+- Vídeos sintéticos de prueba: 10 s / 30 fps / 1920×1080, ocho paneles sin
+  solapamiento y referencias de 50,60,70,80,90,100,110,120 RPM.

@@ -3,7 +3,8 @@ const inputCanvas=document.createElement('canvas'),inputCtx=inputCanvas.getConte
 const pixelCanvas=document.createElement('canvas');pixelCanvas.width=96;pixelCanvas.height=54;
 const pixelCtx=pixelCanvas.getContext('2d',{willReadFrequently:true});
 const tracks=new globalThis.PoseTracks();
-const colors=['#7dd3fc','#fdba74'];
+const MAX_CYCLISTS=8;
+const colors=['#127fc4','#e77a24','#16875d','#9c4bc7','#cc4268','#078f9c','#9a7626','#475bd0'];
 let pose=null,PoseLandmarker,DrawingUtils,source=null,blobURL=null,session=0,requestId=null,loadId=0;
 let lastMediaTime=-1,lastModelTimestamp=0,lastInferenceWall=0,lastPixels=null,lastChangeTime=null,frozen=false;
 let records=[],poseRecords=[],modelPromise=null,diagnostic='';
@@ -17,7 +18,7 @@ async function initPose(){
   const mod=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32');
   PoseLandmarker=mod.PoseLandmarker;DrawingUtils=mod.DrawingUtils;
   const vision=await mod.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm');
-  const options={baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',delegate:'GPU'},runningMode:'VIDEO',numPoses:2,minPoseDetectionConfidence:.5,minPosePresenceConfidence:.5,minTrackingConfidence:.5};
+  const options={baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',delegate:'GPU'},runningMode:'VIDEO',numPoses:MAX_CYCLISTS,minPoseDetectionConfidence:.5,minPosePresenceConfidence:.5,minTrackingConfidence:.5};
   try{pose=await PoseLandmarker.createFromOptions(vision,options);}catch{options.baseOptions.delegate='CPU';pose=await PoseLandmarker.createFromOptions(vision,options);}
   return pose;
  })();
@@ -104,7 +105,7 @@ function render(found){
  const cards=$('cards');cards.replaceChildren();
  if(!found.length){const card=document.createElement('div');card.className='card';card.style.setProperty('--color',colors[0]);card.textContent='Sin persona detectada · RPM --';cards.append(card);return;}
  for(const track of found){
-  const r=track.result,card=document.createElement('div');card.className='card';card.style.setProperty('--color',colors[(track.id-1)%2]);
+  const r=track.result,card=document.createElement('div');card.className='card';card.style.setProperty('--color',colors[(track.id-1)%colors.length]);
   const header=document.createElement('div');header.textContent='Ciclista '+track.id;
   const rpm=document.createElement('div');rpm.className='rpm';rpm.append(r.rpm===null?'-- ':Math.round(r.rpm)+' ');const unit=document.createElement('small');unit.textContent='RPM';rpm.append(unit);
   const detail=document.createElement('div');detail.className='detail';
@@ -117,7 +118,7 @@ function draw(found){
  canvas.width=video.videoWidth||1280;canvas.height=video.videoHeight||720;ctx.clearRect(0,0,canvas.width,canvas.height);
  if(!DrawingUtils)return;
  const drawing=new DrawingUtils(ctx);
- for(const track of found){if(!track.lm)continue;const color=colors[(track.id-1)%2];
+ for(const track of found){if(!track.lm)continue;const color=colors[(track.id-1)%colors.length];
   drawing.drawConnectors(track.lm,PoseLandmarker.POSE_CONNECTIONS,{color,lineWidth:2});
   const selected=track.signals?.find(s=>s.name===track.result.method);
   for(const i of selected?.points??[]){const p=track.lm[i];ctx.beginPath();ctx.arc(p.x*canvas.width,p.y*canvas.height,7,0,2*Math.PI);ctx.fillStyle=color;ctx.fill();}
@@ -156,7 +157,7 @@ $('freeze').onchange=()=>{if($('freeze').checked){inputCanvas.width=video.videoW
 video.addEventListener('ended',()=>{cancelLoop();$('play').textContent='Reproducir';setStatus('Vídeo terminado · resultados conservados');});
 video.addEventListener('error',()=>{if(source)error(new Error('No se pudo decodificar el vídeo. Usa MP4 H.264.'));});
 $('export').onclick=()=>{const keys=['time_ms','cyclist','rpm','reference_rpm','quality','method','state','cycles','frozen_pixels'];const csv=keys.join(',')+'\n'+records.map(r=>keys.map(k=>JSON.stringify(r[k]??'')).join(',')).join('\n');download('cadence-diagnostic.csv',csv,'text/csv');};
-$('landmarks').onclick=()=>download('cadence-landmarks.json',JSON.stringify({version:1,source:source==='file'?$('fileName').textContent:'camera',width:video.videoWidth,height:video.videoHeight,references:[$('expected1').value,$('expected2').value].map(x=>x===''?null:Number(x)),frames:poseRecords}),'application/json');
+$('landmarks').onclick=()=>download('cadence-landmarks.json',JSON.stringify({version:1,source:source==='file'?$('fileName').textContent:'camera',width:video.videoWidth,height:video.videoHeight,references:Array.from({length:MAX_CYCLISTS},(_,i)=>$('expected'+(i+1)).value).map(x=>x===''?null:Number(x)),frames:poseRecords}),'application/json');
 // A local harness can inject a compatible pose model and run the same UI pipeline.
 // It is opt-in and cannot be activated from arbitrary URL data.
 if(new URLSearchParams(location.search).has('test'))window.cadenceDebug={
