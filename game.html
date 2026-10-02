@@ -130,6 +130,10 @@ function tone(freq=700,duration=.07,volume=.06,type='sine'){
 function navetteBeep(){
   tone(1100,.18,.12,'square');
 }
+function platformReachedBeep(){
+  tone(850,.08,.08,'sine');
+  setTimeout(()=>tone(1050,.08,.08,'sine'),140);
+}
 function buttonFeedback(button,text,sound=true){
   ensureAudio();
   if(sound) tone(520,.045,.035,'sine');
@@ -236,6 +240,7 @@ function pedal(){
   buttonFeedback(el('pedal'), '+1 vuelta · '+currentRevs+'/'+revsPerPlatform(), true);
   if(currentRevs>=revsPerPlatform()){
     reached=true;
+    platformReachedBeep();
     el('status').textContent="Plataforma alcanzada. Esperando al pitido para continuar…";
     addLog("Objetivo de vueltas alcanzado antes del límite.");
   }
