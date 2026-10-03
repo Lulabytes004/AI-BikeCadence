@@ -1,49 +1,36 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="apple-mobile-web-app-capable" content="yes"><title>Bike Cadence Vision</title><style>
-*{box-sizing:border-box}body{margin:0;background:#0a0c10;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh}.app{max-width:720px;margin:auto;padding:14px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.title{font-weight:700;font-size:18px}.status{font-size:12px;padding:6px 9px;border-radius:99px;background:#252932}.view{position:relative;overflow:hidden;border-radius:18px;background:#171a20;aspect-ratio:3/4}video,canvas{position:absolute;width:100%;height:100%;object-fit:cover}canvas{pointer-events:none}.hud{position:absolute;left:12px;right:12px;bottom:12px;background:rgba(0,0,0,.55);backdrop-filter:blur(10px);border-radius:16px;padding:13px}.rpm{display:flex;align-items:baseline;gap:8px}.rpm strong{font-size:54px;line-height:1}.rpm span{font-size:17px;color:#cbd0d8}.meta{display:flex;gap:18px;margin-top:7px;font-size:12px;color:#d0d4dc}.bar{height:5px;background:#363b45;border-radius:9px;margin-top:9px;overflow:hidden}.bar i{display:block;height:100%;width:0;background:#fff;transition:width .15s}.controls{display:flex;gap:9px;margin-top:12px}button{flex:1;border:0;border-radius:13px;padding:13px;font-size:16px;font-weight:650}#start{background:#fff;color:#111}#reset{background:#242832;color:#fff}.help{font-size:13px;line-height:1.45;color:#aeb5c1;margin:12px 3px}.err{color:#ffb3b3}.diag{margin-top:10px;padding:10px;border-radius:10px;background:#171a20;font-size:12px;white-space:pre-wrap}.ok{color:#b9f6ca}</style></head><body><div class="app"><div class="top"><div class="title">Bike Cadence Vision</div><div id="status" class="status">Preparado</div></div><div class="view"><video id="video" playsinline muted></video><canvas id="overlay"></canvas><div class="hud"><div class="rpm"><strong id="rpm">--</strong><span>RPM</span></div><div class="meta"><span>Método: <b id="method">--</b></span><span>Confianza: <b id="quality">0%</b></span><span>Ciclos: <b id="cycles">0</b></span></div><div class="bar"><i id="qbar"></i></div></div></div><div class="controls"><button id="start">Iniciar cámara</button><button id="reset">Reset</button></div><div id="help" class="help">Coloca el iPhone de forma que se vea claramente una parte del movimiento de pedaleo. El detector podrá usar rodillas o pies/tobillos y seleccionará automáticamente la señal más estable.<div id="diag" class="diag"></div></div></div>
-<script type="module">
-let PoseLandmarker, FilesetResolver, DrawingUtils;
-async function loadMediaPipe(){
-  if(PoseLandmarker) return;
-  const mod = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32');
-  PoseLandmarker=mod.PoseLandmarker; FilesetResolver=mod.FilesetResolver; DrawingUtils=mod.DrawingUtils;
-}
-const $=id=>document.getElementById(id), video=$('video'), canvas=$('overlay'), ctx=canvas.getContext('2d');
-let pose=null,running=false,lastVideoTime=-1,lastInference=0,smoothRpm=null,cycleCount=0,lastCycleTime=0; const signalHist={};
-const start=$('start'), reset=$('reset'), status=$('status'), diag=$('diag');
-function diagnostics(){const secure=window.isSecureContext; const gum=!!navigator.mediaDevices?.getUserMedia; diag.innerHTML=`Origen: ${location.protocol}//${location.host||'(archivo local)'}\nContexto seguro HTTPS: ${secure?'SÍ':'NO'}\nAPI cámara disponible: ${gum?'SÍ':'NO'}\nNavegador: ${navigator.userAgent.includes('Safari')?'Safari/iOS compatible':'WebKit/navegador'}`; return secure&&gum;}
-diagnostics();
-async function initPose(){ if(pose)return; status.textContent='Cargando IA…'; await loadMediaPipe(); const vision=await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm'); pose=await PoseLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',delegate:'GPU'},runningMode:'VIDEO',numPoses:1,minPoseDetectionConfidence:.5,minPosePresenceConfidence:.5,minTrackingConfidence:.5}); status.textContent='IA lista'; }
-async function camera(){try{
- if(!window.isSecureContext) throw new Error('SECURE_CONTEXT: Safari requiere HTTPS para acceder a la cámara.');
- if(!navigator.mediaDevices?.getUserMedia) throw new Error('CAMERA_API: La API de cámara no está disponible en este contexto.');
- status.textContent='Solicitando cámara…';
- const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30}},audio:false});
- video.srcObject=stream; await video.play();
- diag.innerHTML='<span class="ok">✓ Cámara autorizada y vídeo iniciado.<br>Ahora cargando IA…</span>';
- status.textContent='Cargando IA…'; await initPose();
- running=true;start.textContent='Detener';status.textContent='Buscando ciclista…';diag.innerHTML='<span class=\"ok\">✓ Cámara autorizada y vídeo iniciado.\n✓ Modelo de pose cargado.</span>';requestAnimationFrame(loop)
-}catch(e){console.error(e);status.textContent='Error de cámara';let msg=e.message||String(e);if(e.name==='NotAllowedError')msg='Permiso de cámara denegado. En iPhone: Ajustes → Safari → Cámara, o pulsa aA → Configuración del sitio web → Cámara → Permitir.';else if(e.name==='NotFoundError')msg='No se encontró una cámara disponible.';else if(e.name==='NotReadableError')msg='La cámara está ocupada por otra aplicación o Safari no puede acceder a ella.';diag.innerHTML='<span class=\"err\">✕ '+msg+'</span>';
- }}
-function resetData(){smoothRpm=null;cycleCount=0;lastCycleTime=0;for(const k in signalHist)delete signalHist[k];$('rpm').textContent='--';$('cycles').textContent='0';$('method').textContent='--';}
-function stop(){running=false;video.srcObject?.getTracks().forEach(t=>t.stop());video.srcObject=null;start.textContent='Iniciar cámara';status.textContent='Detenido';ctx.clearRect(0,0,canvas.width,canvas.height)}
-start.onclick=()=>running?stop():camera(); reset.onclick=resetData;
-function angle(a,b,c){const u={x:a.x-b.x,y:a.y-b.y},v={x:c.x-b.x,y:c.y-b.y};const d=u.x*v.x+u.y*v.y,m=Math.hypot(u.x,u.y)*Math.hypot(v.x,v.y);return m?Math.acos(Math.max(-1,Math.min(1,d/m)))*180/Math.PI:0}
-function visibility(...p){return p.reduce((s,x)=>s+(x?.visibility??0),0)/p.length}
-function addSignal(name,t,v,q,points,type){if(!Number.isFinite(v)||q<.25)return;const h=signalHist[name]??=[];h.push({t,v,q});while(h.length&&t-h[0].t>6000)h.shift();signalHist[name]=h;h.points=points;h.type=type}
-function rangeScore(h){if(!h||h.length<10)return 0;const recent=h.filter(x=>h.at(-1).t-x.t<2200);if(recent.length<8)return 0;const vals=recent.map(x=>x.v);const amp=Math.max(...vals)-Math.min(...vals);const q=recent.reduce((a,x)=>a+x.q,0)/recent.length;const need=h.type==='angle'?12:.035;return q*.65+Math.min(1,amp/need)*.35}
-function peakTime(h){if(!h||h.length<5)return null;const n=h.length,b=h[n-2].v,a=h[n-3].v,c=h[n-1].v;const min=h.type==='angle';const extremum=min?(b<a&&b<c):(b>a&&b>c);if(!extremum)return null;const vals=h.slice(-20).map(x=>x.v),amp=Math.max(...vals)-Math.min(...vals),need=h.type==='angle'?10:.025;if(amp<need)return null;return h[n-2].t}
-function process(lm,t){
- const legs=[['Izq.',23,25,27],['Der.',24,26,28]];
- for(const [n,hi,ki,ai] of legs){const h=lm[hi],k=lm[ki],a=lm[ai],len=Math.max(.05,Math.hypot(a.x-h.x,a.y-h.y));addSignal('Ángulo '+n,t,angle(h,k,a),visibility(h,k,a),[h,k,a],'angle');addSignal('Rodilla '+n,t,(k.y-h.y)/len,visibility(h,k),[h,k],'pos');addSignal('Pie '+n,t,(a.y-h.y)/len,visibility(h,a),[h,a],'pos')}
- const lh=lm[23],la=lm[27],rh=lm[24],ra=lm[28],scale=Math.max(.05,(Math.hypot(la.x-lh.x,la.y-lh.y)+Math.hypot(ra.x-rh.x,ra.y-rh.y))/2);
- addSignal('Pies L-R',t,(la.y-ra.y)/scale,visibility(lh,la,rh,ra),[la,ra],'pos');
- let best=null,score=0;for(const [name,h] of Object.entries(signalHist)){const sc=rangeScore(h);if(sc>score){score=sc;best=name}}
- if(!best){$('method').textContent='--';$('quality').textContent='0%';$('qbar').style.width='0%';status.textContent='Buscando movimiento…';return}
- $('method').textContent=best;$('quality').textContent=Math.round(score*100)+'%';$('qbar').style.width=Math.round(score*100)+'%';
- const h=signalHist[best],pt=peakTime(h);
- if(pt&&pt-lastCycleTime>330){if(lastCycleTime){const inst=60000/(pt-lastCycleTime);if(inst>=25&&inst<=180){smoothRpm=smoothRpm==null?inst:.72*smoothRpm+.28*inst;cycleCount++;$('rpm').textContent=Math.round(smoothRpm);$('cycles').textContent=cycleCount}}lastCycleTime=pt}
- status.textContent=smoothRpm?'Midiendo':'Detectando pedaleo…';return {best:{p:h.points}};
-}
-function draw(lm,best){canvas.width=video.videoWidth;canvas.height=video.videoHeight;ctx.clearRect(0,0,canvas.width,canvas.height);if(!lm)return; const d=new DrawingUtils(ctx);d.drawConnectors(lm,PoseLandmarker.POSE_CONNECTIONS,{color:'rgba(255,255,255,.45)',lineWidth:3}); if(best){for(const p of best.p){ctx.beginPath();ctx.arc(p.x*canvas.width,p.y*canvas.height,9,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();ctx.lineWidth=4;ctx.strokeStyle='#111';ctx.stroke()}}}
-function loop(ts){if(!running)return;if(video.readyState>=2&&video.currentTime!==lastVideoTime&&ts-lastInference>45){lastVideoTime=video.currentTime;lastInference=ts;pose.detectForVideo(video,performance.now(),res=>{const lm=res.landmarks?.[0];if(lm){const out=process(lm,performance.now());draw(lm,out?.best)}else{status.textContent='No veo una persona';draw(null)}})}requestAnimationFrame(loop)}
-</script></body></html>
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Bike Cadence Vision · Vídeo local</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0a0c10;color:#fff;font-family:system-ui,sans-serif}.app{max-width:1000px;margin:auto;padding:16px}a{color:#cbd0d8}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:14px 0}.title{font-weight:700;font-size:21px}.status{font-size:12px;padding:7px 10px;border-radius:99px;background:#252932}.view{position:relative;overflow:hidden;border-radius:16px;background:#171a20;aspect-ratio:16/9}video,canvas{position:absolute;width:100%;height:100%;object-fit:contain}canvas{pointer-events:none}.controls{display:flex;flex-wrap:wrap;gap:9px;margin:12px 0}button,.file-label{border:0;border-radius:11px;padding:12px 16px;font-size:15px;font-weight:650;background:#252932;color:#fff;cursor:pointer}button.primary,.file-label{background:#fff;color:#111}button:disabled{opacity:.45;cursor:default}input[type=file]{display:none}.panel{background:#171a20;border:1px solid #2b303a;border-radius:14px;padding:13px;margin:12px 0}.timeline{display:flex;align-items:center;gap:12px}.timeline input{flex:1;min-width:0}.timeline span{font-variant-numeric:tabular-nums;font-size:13px}select,input[type=number]{color:white;background:#252932;border:1px solid #414651;border-radius:6px;padding:7px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}.card{background:#171a20;border:1px solid #2b303a;border-left:4px solid var(--color);border-radius:12px;padding:14px}.rpm{font-size:42px;font-weight:750}.rpm small{font-size:16px;color:#b8c0ce}.detail{font-size:12px;color:#b8c0ce;line-height:1.7}.help{font-size:13px;color:#aeb5c1;line-height:1.5}#diag{white-space:pre-wrap;font-size:12px;max-height:150px;overflow:auto}.err{color:#ffb3b3}.ok{color:#b9f6ca}summary{cursor:pointer;font-size:14px}.settings{display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-size:13px}#fileName{overflow-wrap:anywhere}#sourceLabel{font-size:13px;color:#aeb5c1}label{cursor:pointer}.hidden{display:none}@media(max-width:600px){.title{font-size:17px}.app{padding:10px}.controls button,.file-label{padding:11px;font-size:13px}.timeline{flex-wrap:wrap}}
+</style>
+</head>
+<body><main class="app">
+<a href="./index.html">← Índice</a>
+<div class="top"><div class="title">Bike Cadence Vision</div><div id="status" class="status">Preparado</div></div>
+<div id="sourceLabel">Cámara o archivo de vídeo · análisis de hasta dos ciclistas</div>
+<div class="view" id="view"><video id="video" playsinline muted preload="auto"></video><canvas id="overlay"></canvas></div>
+<div class="controls">
+<button id="camera" class="primary">Iniciar cámara</button>
+<label class="file-label" for="file">Cargar vídeo</label><input id="file" type="file" accept="video/*,.mp4,.mov,.webm">
+<button id="play" disabled>Reproducir</button><button id="step" disabled>+1 fotograma</button><button id="reset">Reiniciar medición</button>
+</div>
+<div id="videoControls" class="panel hidden">
+<div id="fileName" class="help"></div>
+<div class="timeline"><input id="seek" type="range" min="0" max="10" step=".001" value="0" aria-label="Posición del vídeo"><span id="time">0.00 / 0.00 s</span><label>Velocidad <select id="speed"><option value=".25">0,25×</option><option value=".5">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option></select></label></div>
+<p class="help">La cadencia utiliza el tiempo del archivo: cambiar la velocidad de reproducción no cambia las RPM. Pausar conserva la última medición; buscar otra posición reinicia el historial.</p>
+</div>
+<div id="cards" class="cards"><div class="card" style="--color:#7dd3fc"><div>Ciclista</div><div class="rpm">-- <small>RPM</small></div><div class="detail">Esperando vídeo o cámara.</div></div></div>
+<details class="panel"><summary>Pruebas y diagnóstico</summary>
+<p class="help">Para comparar con una referencia, introduce las RPM de izquierda a derecha al inicio del vídeo. Los números de ciclista siguen la posición de la cadera.</p>
+<div class="settings"><label>Referencia 1 <input id="expected1" type="number" min="0" max="180" step="1" placeholder="RPM" style="width:75px"></label><label>Referencia 2 <input id="expected2" type="number" min="0" max="180" step="1" placeholder="RPM" style="width:75px"></label><label>FPS para avanzar <input id="fps" type="number" min="1" max="120" value="30" style="width:70px"></label><label><input id="freeze" type="checkbox"> Congelar imagen de entrada</label></div>
+<p class="help">“Congelar” repite exactamente el mismo fotograma mientras el tiempo del vídeo avanza: prueba que la cadencia cae a cero. Un cuadro repetido no puede generar ciclos nuevos.</p>
+<div class="controls"><button id="export">Exportar diagnóstico CSV</button><button id="landmarks">Exportar puntos JSON</button></div>
+<div id="diag">Preparado.</div>
+</details>
+<p class="help">El detector compara rodillas y tobillos y exige movimiento periódico antes de mostrar RPM. Una persona que no se reconoce se muestra sin medición. Los dibujos esquemáticos pueden no ser reconocidos por el modelo de personas.</p>
+</main>
+<script src="./cadence.js"></script><script src="./measure.js" type="module"></script>
+</body></html>
