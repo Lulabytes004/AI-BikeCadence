@@ -23,6 +23,10 @@
 <p class="help">La cadencia utiliza el tiempo del archivo: cambiar la velocidad de reproducción no cambia las RPM. Pausar conserva la última medición; buscar otra posición reinicia el historial.</p>
 </div>
 <div class="panel">
+<div class="settings"><label>Detector de bicicletas <select id="zoneModel"><option value="original">EfficientDet original</option><option value="trained">EfficientDet entrenado · 5 épocas</option><option value="yolo">YOLO11n preentrenado</option></select></label></div>
+<div class="controls"><label class="file-label" for="trainedModelFile">Cargar modelo entrenado</label><input id="trainedModelFile" type="file" accept=".tflite"><span id="trainedModelName" class="help">Extrae tu ZIP del resultado y elige model.tflite. No se sube a ningún servidor.</span></div>
+<div id="modelStatus" class="help" role="status">Seleccionado: EfficientDet original</div>
+<p class="help">Cambia de modelo y reproduce el mismo vídeo desde el inicio para comparar. El cambio pausa el vídeo y reinicia la medición. El vídeo se procesa en tu dispositivo.</p>
 <div class="controls"><button id="scanZones" disabled>Volver a detectar zonas</button><label><input id="showZones" type="checkbox" checked> Mostrar zonas</label></div>
 <div id="zoneStatus" class="help" role="status">Las zonas se detectan automáticamente al reproducir el vídeo.</div>
 <p class="help">Zonas Z1–Z8: línea continua = bicicleta reconocida; discontinua = zona estimada por una persona, sin bicicleta confirmada. Mantén la cámara fija. Esta primera capa delimita las zonas; la medición de postura todavía analiza la imagen completa.</p>

@@ -1,3 +1,4 @@
+import {MODELS,createZoneDetector} from './zone-detectors.js';
 const $=id=>document.getElementById(id),video=$('video'),canvas=$('overlay'),ctx=canvas.getContext('2d');
 const inputCanvas=document.createElement('canvas'),inputCtx=inputCanvas.getContext('2d',{willReadFrequently:true});
 const pixelCanvas=document.createElement('canvas');pixelCanvas.width=96;pixelCanvas.height=54;
@@ -7,33 +8,39 @@ const MAX_CYCLISTS=8;
 const bikeZones=new globalThis.BikeZones(MAX_CYCLISTS);
 const zoneCanvas=document.createElement('canvas'),zoneCtx=zoneCanvas.getContext('2d');
 let objectDetector=null,objectPromise=null,lastZoneScan=-Infinity,zoneScanCount=0,zoneFailure='',lastFound=[];
+let zoneGeneration=0,zoneBusy=false,selectedModel='original',trainedBytes=null;
 async function initZones(){
  if(objectDetector)return objectDetector;if(objectPromise)return objectPromise;
- $('zoneStatus').textContent='Cargando detector de zonas…';
- objectPromise=(async()=>{
-  const mod=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32');
-  const vision=await mod.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm');
-  objectDetector=await mod.ObjectDetector.createFromOptions(vision,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float32/1/efficientdet_lite0.tflite',delegate:'CPU'},runningMode:'IMAGE',scoreThreshold:.45,maxResults:30,categoryAllowlist:['bicycle','person']});
-  zoneFailure='';return objectDetector;
- })();
- try{return await objectPromise;}catch(e){zoneFailure='No se pudo cargar el detector de zonas. Pulsa Volver a detectar zonas para reintentar.';return null;}finally{objectPromise=null;}
+ const generation=zoneGeneration,key=selectedModel;
+ $('modelStatus').textContent='Cargando '+MODELS[key].name+'…';
+ const pending=(async()=>{
+  const detector=await createZoneDetector(key,trainedBytes);
+  if(generation!==zoneGeneration){await detector.close();return null;}
+  objectDetector=detector;zoneFailure='';$('modelStatus').textContent='Activo: '+MODELS[key].name;return detector;
+ })();objectPromise=pending;
+ try{return await pending;}catch(e){if(generation===zoneGeneration){zoneFailure='No se pudo cargar '+MODELS[key].name+': '+(e.message||String(e));$('modelStatus').textContent=zoneFailure;}return null;}finally{if(objectPromise===pending)objectPromise=null;}
 }
-function resetZones(){bikeZones.reset();lastZoneScan=-Infinity;zoneScanCount=0;}
-function scanZones(t,landmarks=[]){
- if(!objectDetector||bikeZones.locked||zoneScanCount>=6||t-lastZoneScan<650||frozen)return;
- lastZoneScan=t;zoneScanCount++;
- const W=inputCanvas.width,H=inputCanvas.height,boxes=[];
- // Whole image plus overlapping tiles: small bikes/people get more model pixels.
- for(const [x,y,w,h] of [[0,0,1,1],[0,0,.6,.6],[.4,0,.6,.6],[0,.4,.6,.6],[.4,.4,.6,.6]]){
-  zoneCanvas.width=Math.round(W*w);zoneCanvas.height=Math.round(H*h);
-  zoneCtx.drawImage(inputCanvas,x*W,y*H,w*W,h*H,0,0,zoneCanvas.width,zoneCanvas.height);
-  for(const d of objectDetector.detect(zoneCanvas).detections??[]){
-   const c=d.categories?.[0],b=d.boundingBox;if(!c||!b)continue;
-   boxes.push({label:c.categoryName,score:c.score,x:x+b.originX/W,y:y+b.originY/H,w:b.width/W,h:b.height/H});
+function resetZones(){zoneGeneration++;bikeZones.reset();lastZoneScan=-Infinity;zoneScanCount=0;}
+async function scanZones(t,landmarks=[]){
+ if(!objectDetector||zoneBusy||bikeZones.locked||zoneScanCount>=6||t-lastZoneScan<650||frozen)return;
+ const generation=zoneGeneration,detector=objectDetector;
+ zoneBusy=true;lastZoneScan=t;
+ const snapshot=document.createElement('canvas');snapshot.width=inputCanvas.width;snapshot.height=inputCanvas.height;snapshot.getContext('2d').drawImage(inputCanvas,0,0);
+ const W=snapshot.width,H=snapshot.height,boxes=[];
+ const tile=document.createElement('canvas'),context=tile.getContext('2d');
+ try{
+  for(const [x,y,w,h] of [[0,0,1,1],[0,0,.6,.6],[.4,0,.6,.6],[0,.4,.6,.6],[.4,.4,.6,.6]]){
+   tile.width=Math.round(W*w);tile.height=Math.round(H*h);
+   context.drawImage(snapshot,x*W,y*H,w*W,h*H,0,0,tile.width,tile.height);
+   const result=await detector.detect(tile);if(generation!==zoneGeneration)return;
+   for(const d of result.detections??[]){const c=d.categories?.[0],b=d.boundingBox;if(!c||!b)continue;
+    boxes.push({label:c.categoryName,score:c.score,x:x+b.originX/W,y:y+b.originY/H,w:b.width/W,h:b.height/H});
+   }
   }
- }
- bikeZones.update([...boxes,...globalThis.poseZoneBoxes(landmarks)],t);
- if(zoneScanCount>=6)bikeZones.lock();
+  bikeZones.update([...boxes,...globalThis.poseZoneBoxes(landmarks)],t);zoneScanCount++;
+  if(zoneScanCount>=6)bikeZones.lock();
+ }catch(e){if(generation===zoneGeneration){zoneFailure='Error al detectar zonas: '+(e.message||String(e));zoneScanCount=6;}}
+ finally{zoneBusy=false;showZoneStatus();draw(lastFound);}
 }
 function showZoneStatus(){
  const zs=bikeZones.zones,bikes=zs.filter(z=>z.kind==='bicycle').length;
@@ -202,7 +209,7 @@ $('freeze').onchange=()=>{if($('freeze').checked){inputCanvas.width=video.videoW
 video.addEventListener('ended',()=>{cancelLoop();$('play').textContent='Reproducir';setStatus('Vídeo terminado · resultados conservados');});
 video.addEventListener('error',()=>{if(source)error(new Error('No se pudo decodificar el vídeo. Usa MP4 H.264.'));});
 $('export').onclick=()=>{const keys=['time_ms','cyclist','rpm','reference_rpm','quality','method','state','cycles','frozen_pixels'];const csv=keys.join(',')+'\n'+records.map(r=>keys.map(k=>JSON.stringify(r[k]??'')).join(',')).join('\n');download('cadence-diagnostic.csv',csv,'text/csv');};
-$('landmarks').onclick=()=>download('cadence-landmarks.json',JSON.stringify({version:2,zones:bikeZones.zones,zones_locked:bikeZones.locked,source:source==='file'?$('fileName').textContent:'camera',width:video.videoWidth,height:video.videoHeight,references:Array.from({length:MAX_CYCLISTS},(_,i)=>$('expected'+(i+1)).value).map(x=>x===''?null:Number(x)),frames:poseRecords}),'application/json');
+$('landmarks').onclick=()=>download('cadence-landmarks.json',JSON.stringify({version:3,zone_model:selectedModel,zone_model_name:MODELS[selectedModel].name,zones:bikeZones.zones,zones_locked:bikeZones.locked,source:source==='file'?$('fileName').textContent:'camera',width:video.videoWidth,height:video.videoHeight,references:Array.from({length:MAX_CYCLISTS},(_,i)=>$('expected'+(i+1)).value).map(x=>x===''?null:Number(x)),frames:poseRecords}),'application/json');
 // A local harness can inject a compatible pose model and run the same UI pipeline.
 // It is opt-in and cannot be activated from arbitrary URL data.
 if(new URLSearchParams(location.search).has('test'))window.cadenceDebug={
@@ -217,4 +224,25 @@ $('scanZones').onclick=async()=>{
  $('scanZones').disabled=!source;
  if(source&&video.readyState>=2){sourcePixels();try{scanZones(video.currentTime*1000);}catch(e){zoneFailure='Error al detectar zonas: '+(e.message||String(e));zoneScanCount=6;}}
  showZoneStatus();draw(lastFound);
+};
+
+$('zoneModel').onchange=async()=>{
+ $('zoneModel').disabled=true;
+ try{
+ video.pause();cancelLoop();$('play').textContent='Reproducir';
+ selectedModel=$('zoneModel').value;resetZones();zoneFailure='';
+ // Allow an in-flight inference to finish before closing its runtime.
+ while(zoneBusy)await new Promise(resolve=>setTimeout(resolve,20));
+ const old=objectDetector;objectDetector=null;objectPromise=null;if(old)await old.close();
+ clearData();await initZones();showZoneStatus();
+ if(source&&video.readyState>=2){sourcePixels();await scanZones(video.currentTime*1000);}
+ }catch(e){zoneFailure=e.message||String(e);showZoneStatus();}
+ finally{$('zoneModel').disabled=false;}
+};
+
+$('trainedModelFile').onchange=async()=>{
+ const file=$('trainedModelFile').files[0];if(!file)return;
+ try{trainedBytes=new Uint8Array(await file.arrayBuffer());$('trainedModelName').textContent=file.name+' · cargado en este dispositivo';$('zoneModel').value='trained';await $('zoneModel').onchange();}
+ catch(e){$('modelStatus').textContent='No se pudo leer el modelo: '+e.message;}
+ $('trainedModelFile').value='';
 };

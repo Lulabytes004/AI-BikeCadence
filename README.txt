@@ -72,3 +72,8 @@ Corrección tras probar los MP4 anteriores de dos ciclistas
   MP4 de dos ciclistas. Ver tests/VIDEO_VALIDATION.md para cifras y límites.
 - La vista lateral sigue ofreciendo lecturas intermitentes; el cambio no
   acredita detección continua con ocho personas ni funcionamiento en GPU.
+
+Comparar modelos de zonas
+------------------------
+En measure.html, el selector «Detector de bicicletas» permite alternar EfficientDet original, EfficientDet entrenado (5 épocas) y YOLO11n COCO. No cambia el modelo de postura ni el algoritmo de cadencia. Cada cambio pausa el vídeo y reinicia el historial; reproduce el mismo fragmento desde el inicio para comparar. Las cajas continuas son bicicletas confirmadas, las discontinuas siguen siendo estimaciones por personas. El JSON exportado identifica el detector.
+YOLO11n descarga sus pesos públicos al seleccionarlo por primera vez. Para el detector entrenado, extrae tu ZIP y pulsa «Cargar modelo entrenado» para elegir model.tflite; se carga en memoria y no se publica ni se sube. No hay que subir el vídeo a ningún servicio. Los runtimes externos y el EfficientDet original requieren red en la primera carga.
