@@ -214,16 +214,48 @@ $('landmarks').onclick=()=>download('cadence-landmarks.json',JSON.stringify({ver
 // It is opt-in and cannot be activated from arbitrary URL data.
 if(new URLSearchParams(location.search).has('test'))window.cadenceDebug={
  setModel(model){pose=model;},setZoneModel(model){objectDetector=model;},openFile,processFrame,seekTo,
- get records(){return records;},get poseRecords(){return poseRecords;},get tracks(){return tracks;},get zones(){return bikeZones;}
+ get zoneDetector(){return objectDetector;},get records(){return records;},get poseRecords(){return poseRecords;},get tracks(){return tracks;},get zones(){return bikeZones;}
 };
 
 $('showZones').onchange=()=>draw(lastFound);
 $('scanZones').onclick=async()=>{
- resetZones();zoneFailure='';$('scanZones').disabled=true;showZoneStatus();draw(lastFound);
- const token=loadId;await initZones();if(token!==loadId)return;
- $('scanZones').disabled=!source;
- if(source&&video.readyState>=2){sourcePixels();try{scanZones(video.currentTime*1000);}catch(e){zoneFailure='Error al detectar zonas: '+(e.message||String(e));zoneScanCount=6;}}
- showZoneStatus();draw(lastFound);
+ const token=loadId,position=video.currentTime;
+ video.pause();cancelLoop();$('play').textContent='Reproducir';
+ clearData();zoneFailure='';$('scanZones').disabled=true;
+ $('zoneModel').disabled=true;$('play').disabled=true;$('step').disabled=true;$('seek').disabled=true;
+ const generation=zoneGeneration;
+ try{
+  while(zoneBusy)await new Promise(resolve=>setTimeout(resolve,20));
+  await initZones();if(token!==loadId||generation!==zoneGeneration||!objectDetector)return;
+  if(source==='file'){
+   // Read six actual frames while paused: slow models cannot skip the clip.
+   const step=Math.min(.7,Math.max(0,(video.duration-.05)/5));
+   if(step<.16)throw Error('El vídeo debe durar al menos 0,85 segundos para confirmar zonas.');
+   for(let i=0;i<6;i++){
+    if(token!==loadId||generation!==zoneGeneration)return;
+    setStatus(`Analizando zonas · muestra ${i+1}/6`);
+    const t=i*step;
+    if(Math.abs(video.currentTime-t)>.00001){const done=once(video,'seeked');video.currentTime=t;await done;}
+    if(token!==loadId||generation!==zoneGeneration)return;
+    sourcePixels();lastModelTimestamp+=Math.max(1,step*1000);
+    const landmarks=pose?.detectForVideo(inputCanvas,lastModelTimestamp).landmarks??[];
+    // The explicit scan also supports short clips with samples below 650 ms.
+    lastZoneScan=-Infinity;
+    await scanZones(t*1000,landmarks);
+    if(zoneFailure)break;
+    await new Promise(resolve=>setTimeout(resolve,0));
+   }
+   if(token!==loadId||generation!==zoneGeneration)return;
+   if(Math.abs(video.currentTime-position)>.00001){const done=once(video,'seeked');video.currentTime=position;await done;}
+   updateTime();setStatus(zoneFailure?'Error al analizar zonas':'Zonas analizadas · pulsa Reproducir');
+  }else if(source&&video.readyState>=2){sourcePixels();await scanZones(video.currentTime*1000);setStatus('Buscando zonas en la cámara…');}
+ }catch(e){if(token===loadId){zoneFailure=e.message||String(e);showZoneStatus();}}
+ finally{
+  $('zoneModel').disabled=false;$('seek').disabled=false;
+  $('scanZones').disabled=!source;$('play').disabled=source!=='file';$('step').disabled=source!=='file';
+  if(source==='camera'&&token===loadId){try{await video.play();schedule();}catch(e){error(e);}}
+  showZoneStatus();draw(lastFound);
+ }
 };
 
 $('zoneModel').onchange=async()=>{

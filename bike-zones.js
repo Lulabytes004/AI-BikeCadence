@@ -42,16 +42,19 @@
   reset(){this.candidates=[];this.zones=[];this.locked=false;this.lastTime=-Infinity;}
   update(boxes,t){
    if(this.locked||!Number.isFinite(t)||t<=this.lastTime)return this.zones;this.lastTime=t;
-   this.candidates=this.candidates.filter(c=>t-c.seen<1800);
+   // Expiry follows completed observations, so a slow detector does not
+   // discard a station before its next result arrives. Source seeks reset us.
+   for(const c of this.candidates)c.misses=(c.misses||0)+1;
    const used=new Set();
    for(const p of proposals(boxes)){
     let best=null,bestScore=.25;
     for(const c of this.candidates){if(used.has(c))continue;const score=overlap(c.anchor,p.anchor).iou;if(score>bestScore){best=c;bestScore=score;}}
     if(!best){best={...p,first:t,seen:t,hits:0};this.candidates.push(best);}
     else{for(const k of ['x','y','w','h'])best[k]=best[k]*.65+p[k]*.35;best.anchor=p.anchor;best.kind=p.kind;best.score=p.score;}
-    best.seen=t;best.hits++;used.add(best);
+    best.seen=t;best.hits++;best.misses=0;used.add(best);
    }
-   this.zones=rowOrder(this.candidates.filter(c=>c.hits>=3&&t-c.seen<=900&&t-c.first>=800).sort((a,b)=>b.hits-a.hits||b.score-a.score).slice(0,this.max)).map((c,i)=>({id:i+1,x:c.x,y:c.y,w:c.w,h:c.h,kind:c.kind,score:c.score}));
+   this.candidates=this.candidates.filter(c=>c.misses<=1);
+   this.zones=rowOrder(this.candidates.filter(c=>c.hits>=3&&t-c.first>=800).sort((a,b)=>b.hits-a.hits||b.score-a.score).slice(0,this.max)).map((c,i)=>({id:i+1,x:c.x,y:c.y,w:c.w,h:c.h,kind:c.kind,score:c.score}));
    return this.zones;
   }
   lock(){this.locked=this.zones.length>0;return this.zones;}

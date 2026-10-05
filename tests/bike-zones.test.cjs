@@ -39,3 +39,9 @@ test('model outputs from six synthetic clips retain observed coverage without in
   assert.ok(tracker.zones.every(z=>z.kind==='occupied'),source);
  }
 });
+
+test('slow inference confirms repeated zones and two missed observations expire them',()=>{
+ const tracker=new BikeZones();for(const t of [0,2300,4600])tracker.update([person()],t);
+ assert.equal(tracker.zones.length,1);tracker.update([],6900);assert.equal(tracker.zones.length,1);
+ tracker.update([],9200);assert.equal(tracker.zones.length,0);
+});

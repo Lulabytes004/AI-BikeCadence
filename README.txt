@@ -75,5 +75,18 @@ Corrección tras probar los MP4 anteriores de dos ciclistas
 
 Comparar modelos de zonas
 ------------------------
-En measure.html, el selector «Detector de bicicletas» permite alternar EfficientDet original, EfficientDet entrenado (5 épocas) y YOLO11n COCO. No cambia el modelo de postura ni el algoritmo de cadencia. Cada cambio pausa el vídeo y reinicia el historial; reproduce el mismo fragmento desde el inicio para comparar. Las cajas continuas son bicicletas confirmadas, las discontinuas siguen siendo estimaciones por personas. El JSON exportado identifica el detector.
+En measure.html, el selector «Detector de bicicletas» permite alternar EfficientDet-Lite0 original, EfficientDet-Lite2, EfficientDet entrenado mediante archivo local y YOLO11n/s/m COCO. No cambia el modelo de postura ni el algoritmo de cadencia. Cada cambio pausa el vídeo y reinicia el historial; reproduce el mismo fragmento desde el inicio para comparar. Las cajas continuas son bicicletas confirmadas, las discontinuas siguen siendo estimaciones por personas. El JSON exportado identifica el detector.
 YOLO11n descarga sus pesos públicos al seleccionarlo por primera vez. Para el detector entrenado, extrae tu ZIP y pulsa «Cargar modelo entrenado» para elegir model.tflite; se carga en memoria y no se publica ni se sube. No hay que subir el vídeo a ningún servicio. Los runtimes externos y el EfficientDet original requieren red en la primera carga.
+
+Modelos ampliados y análisis de vídeos lentos
+- «Analizar zonas / repetir» pausa el vídeo y examina seis instantes, esperando
+  cada inferencia. Después restaura la posición y deja el vídeo en pausa.
+- Las zonas necesitan tres observaciones en un intervalo de al menos 800 ms.
+  Se retienen durante una observación perdida y se borran tras dos; un modelo
+  lento ya no las pierde solo por tardar más de 1,8 segundos entre muestras.
+- YOLO11s y YOLO11m usan exportaciones COCO float32 640×640 con 80 clases,
+  revisión fija 8b180c762d5cf217886d16e64403508042207e4d de giangndm/yolo11-onnx.
+  Pesos públicos: unos 39 MB y 81 MB. Se mantienen las licencias del proveedor
+  y los metadatos Ultralytics AGPL-3.0. No se incluyen vídeos ni pesos privados.
+- Prueba reproducible por CLI: tests/benchmark-zone-videos.py. Ver
+  tests/ADVANCED_MODEL_VALIDATION.md para resultados y limitaciones.

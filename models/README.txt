@@ -7,3 +7,10 @@ yolo11n.onnx: YOLO11n preentrenado COCO, conversión ONNX distribuida por webnn/
 El EfficientDet original se descarga desde la URL oficial de MediaPipe. Los runtimes se descargan desde jsDelivr la primera vez; no se envían los vídeos a un servidor. Esto no equivale a funcionamiento completamente offline sin preparar la caché.
 
 Cambiar el selector pausa el vídeo y reinicia historial y zonas. Para comparar, sitúa el mismo vídeo al inicio y reproduce cada modelo. El JSON de diagnóstico incluye zone_model y zone_model_name.
+
+YOLO11s / YOLO11m: giangndm/yolo11-onnx, revisión
+8b180c762d5cf217886d16e64403508042207e4d, yolo11s_640.onnx / yolo11m_640.onnx.
+Metadatos comprobados: Ultralytics COCO (person=0, bicycle=1), entrada
+float32 [1,3,640,640], salida [1,84,8400], sin NMS integrado.
+No son modelos de pose ni exportaciones con clases personalizadas.
+EfficientDet-Lite2: modelo oficial MediaPipe float32/1; descarga al seleccionar.
