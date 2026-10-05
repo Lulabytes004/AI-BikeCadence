@@ -8,13 +8,13 @@ const MAX_CYCLISTS=8;
 const bikeZones=new globalThis.BikeZones(MAX_CYCLISTS);
 const zoneCanvas=document.createElement('canvas'),zoneCtx=zoneCanvas.getContext('2d');
 let objectDetector=null,objectPromise=null,lastZoneScan=-Infinity,zoneScanCount=0,zoneFailure='',lastFound=[];
-let zoneGeneration=0,zoneBusy=false,selectedModel='original',trainedBytes=null;
+let zoneGeneration=0,zoneBusy=false,selectedModel='original',trainedBytes=null,trainedYoloBytes=null;
 async function initZones(){
  if(objectDetector)return objectDetector;if(objectPromise)return objectPromise;
  const generation=zoneGeneration,key=selectedModel;
  $('modelStatus').textContent='Cargando '+MODELS[key].name+'…';
  const pending=(async()=>{
-  const detector=await createZoneDetector(key,trainedBytes);
+  const detector=await createZoneDetector(key,key==='yolo_trained'?trainedYoloBytes:trainedBytes);
   if(generation!==zoneGeneration){await detector.close();return null;}
   objectDetector=detector;zoneFailure='';$('modelStatus').textContent='Activo: '+MODELS[key].name;return detector;
  })();objectPromise=pending;
@@ -274,7 +274,7 @@ $('zoneModel').onchange=async()=>{
 
 $('trainedModelFile').onchange=async()=>{
  const file=$('trainedModelFile').files[0];if(!file)return;
- try{trainedBytes=new Uint8Array(await file.arrayBuffer());$('trainedModelName').textContent=file.name+' · cargado en este dispositivo';$('zoneModel').value='trained';await $('zoneModel').onchange();}
+ try{const isYolo=/\.onnx$/i.test(file.name);if(!isYolo&&!/\.tflite$/i.test(file.name))throw Error('Elige model.onnx o model.tflite, no el ZIP ni los pesos .pt.');const bytes=new Uint8Array(await file.arrayBuffer());if(isYolo)trainedYoloBytes=bytes;else trainedBytes=bytes;$('trainedModelName').textContent=file.name+' · cargado en este dispositivo';$('zoneModel').value=isYolo?'yolo_trained':'trained';await $('zoneModel').onchange();}
  catch(e){$('modelStatus').textContent='No se pudo leer el modelo: '+e.message;}
  $('trainedModelFile').value='';
 };

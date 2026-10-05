@@ -11,3 +11,15 @@ test('every UI option has a configured detector and advanced models use distinct
  assert.equal(new Set(['yolo','yolo_s','yolo_m'].map(k=>MODELS[k].url)).size,3);
  assert.match(MODELS.lite2.url,/efficientdet_lite2/);assert.equal(MODELS.trained.local,true);
 });
+
+test('custom two-class YOLO maps class zero to bicycle and merges overlapping bike classes',async()=>{
+ const {decodeYolo,MODELS,createZoneDetector}=await modulePromise;
+ const N=3,data=new Float32Array(6*N);
+ for(let i=0;i<N;i++){data[i]=i===2?500:320;data[N+i]=320;data[2*N+i]=100;data[3*N+i]=100;}
+ data[4*N]=.9;data[5*N+1]=.8;data[5*N+2]=.7;
+ const result=decodeYolo(data,[1,6,N],640,640,640,.45,MODELS.yolo_trained.classes);
+ assert.equal(result.detections.length,2);
+ assert.ok(result.detections.every(d=>d.categories[0].categoryName==='bicycle'));
+ assert.throws(()=>decodeYolo(data,[1,6,N],640,640),/incompatible/);
+ await assert.rejects(createZoneDetector('yolo_trained',null),/model.onnx/);
+});
