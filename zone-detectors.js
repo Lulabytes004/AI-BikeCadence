@@ -3,6 +3,7 @@ export const MODELS={
  original:{name:'EfficientDet original',type:'mediapipe',url:'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float32/1/efficientdet_lite0.tflite'},
  lite2:{name:'EfficientDet-Lite2 preentrenado',type:'mediapipe',url:'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite2/float32/1/efficientdet_lite2.tflite'},
  trained:{name:'EfficientDet entrenado · archivo local',type:'mediapipe',local:true},
+ yolov8n:{name:'YOLOv8n preentrenado',type:'onnx',url:'https://huggingface.co/salim4n/yolov8n-detect-onnx/resolve/98100409491fa67f62a2e780a4efe485b86dfd0b/yolov8n-onnx-web/yolov8n.onnx'},
  yolo_trained:{name:'YOLO11 entrenado · archivo local',type:'onnx',local:true,classes:['bicicleta','bicicleta_spinning']},
  yolo_s:{name:'YOLO11s preentrenado',type:'onnx',url:'https://huggingface.co/giangndm/yolo11-onnx/resolve/8b180c762d5cf217886d16e64403508042207e4d/yolo11s_640.onnx'},
  yolo_m:{name:'YOLO11m preentrenado',type:'onnx',url:'https://huggingface.co/giangndm/yolo11-onnx/resolve/8b180c762d5cf217886d16e64403508042207e4d/yolo11m_640.onnx'},

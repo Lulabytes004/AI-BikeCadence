@@ -23,3 +23,5 @@ test('custom two-class YOLO maps class zero to bicycle and merges overlapping bi
  assert.throws(()=>decodeYolo(data,[1,6,N],640,640),/incompatible/);
  await assert.rejects(createZoneDetector('yolo_trained',null),/model.onnx/);
 });
+
+test('YOLOv8n uses its own pinned ONNX weights',async()=>{const {MODELS}=await modulePromise;assert.equal(MODELS.yolov8n.type,'onnx');assert.notEqual(MODELS.yolov8n.url,MODELS.yolo.url);assert.match(MODELS.yolov8n.url,/98100409491fa67f62a2e780a4efe485b86dfd0b/);});
