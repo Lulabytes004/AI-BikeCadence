@@ -35,13 +35,13 @@ async function runtime(){
  if(!ortPromise)ortPromise=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.js';script.onload=()=>resolve(globalThis.ort);script.onerror=()=>reject(Error('No se pudo cargar ONNX Runtime.'));document.head.append(script);}).catch(e=>{ortPromise=null;throw e;});
  return ortPromise;
 }
-export async function createZoneDetector(key,trainedBytes){
+export async function createZoneDetector(key,trainedBytes,threshold=.45){
  const config=MODELS[key];if(!config)throw Error('Modelo desconocido.');
  if(config.type==='mediapipe'){
   if(config.local&&!trainedBytes)throw Error('Extrae el ZIP del resultado y elige model.tflite en Cargar modelo entrenado.');
   const mod=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32');
   const vision=await mod.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm');
-  const detector=await mod.ObjectDetector.createFromOptions(vision,{baseOptions:{...(config.local?{modelAssetBuffer:trainedBytes}:{modelAssetPath:config.url}),delegate:'CPU'},runningMode:'IMAGE',scoreThreshold:.45,maxResults:30});
+  const detector=await mod.ObjectDetector.createFromOptions(vision,{baseOptions:{...(config.local?{modelAssetBuffer:trainedBytes}:{modelAssetPath:config.url}),delegate:'CPU'},runningMode:'IMAGE',scoreThreshold:threshold,maxResults:30});
   return {detect(input){const result=detector.detect(input);result.detections=result.detections.flatMap(d=>{const c=d.categories?.[0];if(!c)return [];const label=labelName(c.categoryName);if(!['bicycle','person'].includes(label))return [];return [{...d,categories:[{...c,categoryName:label}]}];});return result;},close:()=>detector.close()};
  }
  if(config.local&&!trainedBytes)throw Error('Extrae el ZIP y carga export/model.onnx para usar YOLO11 entrenado.');
@@ -50,5 +50,5 @@ export async function createZoneDetector(key,trainedBytes){
  const metadata=session.inputMetadata?.[0],shape=metadata?.shape;
  if(shape&&shape.join(',')!=='1,3,640,640'){await session.release();throw Error('YOLO: entrada incompatible con 640×640.');}
  const canvas=document.createElement('canvas');canvas.width=640;canvas.height=640;const ctx=canvas.getContext('2d',{willReadFrequently:true});
- return {async detect(input){const w=input.width,h=input.height,s=Math.min(640/w,640/h),rw=Math.round(w*s),rh=Math.round(h*s);ctx.fillStyle='rgb(114,114,114)';ctx.fillRect(0,0,640,640);ctx.drawImage(input,Math.floor((640-rw)/2),Math.floor((640-rh)/2),rw,rh);const pixels=ctx.getImageData(0,0,640,640).data,plane=640*640,data=new Float32Array(plane*3);for(let i=0;i<plane;i++)for(let c=0;c<3;c++)data[c*plane+i]=pixels[i*4+c]/255;const result=await session.run({[session.inputNames[0]]:new ort.Tensor('float32',data,[1,3,640,640])});const output=result[session.outputNames[0]];return decodeYolo(output.data,output.dims,w,h,640,.45,config.classes);},close:()=>session.release()};
+ return {async detect(input){const w=input.width,h=input.height,s=Math.min(640/w,640/h),rw=Math.round(w*s),rh=Math.round(h*s);ctx.fillStyle='rgb(114,114,114)';ctx.fillRect(0,0,640,640);ctx.drawImage(input,Math.floor((640-rw)/2),Math.floor((640-rh)/2),rw,rh);const pixels=ctx.getImageData(0,0,640,640).data,plane=640*640,data=new Float32Array(plane*3);for(let i=0;i<plane;i++)for(let c=0;c<3;c++)data[c*plane+i]=pixels[i*4+c]/255;const result=await session.run({[session.inputNames[0]]:new ort.Tensor('float32',data,[1,3,640,640])});const output=result[session.outputNames[0]];return decodeYolo(output.data,output.dims,w,h,640,threshold,config.classes);},close:()=>session.release()};
 }

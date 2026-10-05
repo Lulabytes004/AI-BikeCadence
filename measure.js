@@ -278,3 +278,28 @@ $('trainedModelFile').onchange=async()=>{
  catch(e){$('modelStatus').textContent='No se pudo leer el modelo: '+e.message;}
  $('trainedModelFile').value='';
 };
+
+$('compareRun').onclick=async()=>{
+ const file=$('compareImage').files[0];if(!file){$('compareStatus').textContent='Selecciona una imagen.';return;}
+ const threshold=Number($('compareConfidence').value);
+ if(!Number.isFinite(threshold)||threshold<=0||threshold>1){$('compareStatus').textContent='La confianza debe estar entre 0,01 y 1.';return;}
+ const key=$('zoneModel').value,button=$('compareRun');button.disabled=true;
+ let detector=null,bitmap=null;
+ try{
+  $('compareStatus').textContent='Cargando modelo y analizando…';
+  bitmap=await createImageBitmap(file);
+  const c=$('compareCanvas');c.width=bitmap.width;c.height=bitmap.height;
+  const context=c.getContext('2d');context.drawImage(bitmap,0,0);
+  const snapshot=document.createElement('canvas');snapshot.width=c.width;snapshot.height=c.height;snapshot.getContext('2d').drawImage(bitmap,0,0);
+  detector=await createZoneDetector(key,key==='yolo_trained'?trainedYoloBytes:trainedBytes,threshold);
+  const started=performance.now(),result=await detector.detect(snapshot),elapsed=performance.now()-started;
+  const labels=[];
+  for(const d of result.detections??[]){
+   const b=d.boundingBox,category=d.categories[0],label=category.categoryName+' '+(category.score*100).toFixed(1)+'%';labels.push(label);
+   context.strokeStyle=category.categoryName==='bicycle'?'#00c853':'#ff9100';context.lineWidth=Math.max(2,c.width/400);
+   context.strokeRect(b.originX,b.originY,b.width,b.height);context.font=Math.max(14,c.width/60)+'px sans-serif';context.fillStyle=context.strokeStyle;context.fillText(label,b.originX,Math.max(20,b.originY-4));
+  }
+  $('compareStatus').textContent=MODELS[key].name+' · '+elapsed.toFixed(0)+' ms · '+labels.length+' detecciones: '+(labels.join(', ')||'ninguna');
+ }catch(e){$('compareStatus').textContent='Error: '+e.message;}
+ finally{if(detector)await detector.close();if(bitmap)bitmap.close();button.disabled=false;}
+};

@@ -31,6 +31,12 @@
 <div id="zoneStatus" class="help" role="status">Las zonas se detectan automáticamente al reproducir el vídeo.</div>
 <p class="help">Zonas Z1–Z8: línea continua = bicicleta reconocida; discontinua = zona estimada por una persona, sin bicicleta confirmada. Mantén la cámara fija. Esta primera capa delimita las zonas; la medición de postura todavía analiza la imagen completa.</p>
 </div>
+<details class="panel"><summary>Comparar detecciones en una imagen</summary>
+<p class="help">Usa el modelo seleccionado arriba. Imagen completa a 640 píxeles, sin recortes ni confirmación de zonas. Solo muestra personas y bicicletas.</p>
+<input id="compareImage" type="file" accept="image/*"><label>Confianza mínima <input id="compareConfidence" type="number" min="0.01" max="1" step="0.01" value="0.25"></label>
+<button id="compareRun">Analizar imagen</button><p id="compareStatus">Selecciona la misma imagen que usaste en Colab.</p>
+<canvas id="compareCanvas" style="max-width:100%;height:auto"></canvas>
+</details>
 <div id="cards" class="cards"><div class="card" style="--color:#7dd3fc"><div>Ciclista</div><div class="rpm">-- <small>RPM</small></div><div class="detail">Esperando vídeo o cámara.</div></div></div>
 <details class="panel"><summary>Pruebas y diagnóstico</summary>
 <p class="help">Introduce las RPM de referencia para cada número C1–C8 que aparece sobre la persona. El detector mantiene los números según la posición de la cadera; tras una ausencia prolongada puede asignarlos de nuevo.</p>
