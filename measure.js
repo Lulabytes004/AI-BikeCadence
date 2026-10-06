@@ -1,4 +1,4 @@
-import {MODELS,createZoneDetector} from './zone-detectors.js?v=posepreview1';
+import {MODELS,createZoneDetector} from './zone-detectors.js?v=twophases1';
 const $=id=>document.getElementById(id),video=$('video'),canvas=$('overlay'),ctx=canvas.getContext('2d');
 const inputCanvas=document.createElement('canvas'),inputCtx=inputCanvas.getContext('2d',{willReadFrequently:true});
 const pixelCanvas=document.createElement('canvas');pixelCanvas.width=96;pixelCanvas.height=54;
@@ -104,7 +104,7 @@ async function initPose(){
  modelPromise=(async()=>{
   let createPoseModel=poseFactoryOverride;
   if(!createPoseModel){
-   ({createPoseModel}=await import('./pose-models.js?v=posepreview1'));
+   ({createPoseModel}=await import('./pose-models.js?v=twophases1'));
   }
   pose=await createPoseModel(selectedPoseModel,{maxPoses:MAX_CYCLISTS,scope:poseScope(),onProgress:showPoseProgress});
   poseRuntimeConfig=poseConfig();
@@ -115,8 +115,8 @@ async function initPose(){
  finally{modelPromise=null;poseLoading=false;$('poseProgress').hidden=true;setModelLoading(detectorLoading);}
 }
 
-function clearData(){
- tracks.reset();lastMediaTime=-1;lastInferenceWall=0;lastPixels=null;lastChangeTime=null;records=[];poseRecords=[];resetZones();lastFound=[];lastPoseLandmarks=[];lastPoseZoneIds=[];lastPoseMs=0;$('poseResults').textContent='Sin postura analizada todavía.';showZoneStatus();
+function clearData(preserveZones=false){
+ tracks.reset();lastMediaTime=-1;lastInferenceWall=0;lastPixels=null;lastChangeTime=null;records=[];poseRecords=[];if(!preserveZones)resetZones();lastFound=[];lastPoseLandmarks=[];lastPoseZoneIds=[];lastPoseMs=0;$('poseResults').textContent='Sin postura analizada todavía.';showZoneStatus();
  $('freeze').checked=false;frozen=false;
  draw([]);render([]);diagnostic='Historial reiniciado.';$('diag').textContent=diagnostic;
 }
@@ -181,7 +181,7 @@ function stationaryPixels(pixels,t){
 }
 function processFrame(mediaTime,preview=false){
  if(frameBusy || video.readyState<2 || video.seeking || mediaTime===lastMediaTime)return;
- if(mediaTime<lastMediaTime)clearData();
+ if(mediaTime<lastMediaTime)clearData(true);
  const mediaDelta=lastMediaTime<0?1:Math.max(.01,(mediaTime-lastMediaTime)*1000);
  lastMediaTime=mediaTime;lastInferenceWall=performance.now();
  const t=mediaTime*1000,still=stationaryPixels(sourcePixels(),t);
@@ -275,24 +275,25 @@ function record(t,found,lm,still,zoneIds=[]){
 }
 function download(name,body,type){const url=URL.createObjectURL(new Blob([body],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 async function seekTo(time,resetHistory=true){
- video.pause();cancelLoop();$('play').textContent='Reproducir';
- if(resetHistory)clearData();
+ video.pause();cancelLoop();$('play').textContent='Analizar posturas desde el inicio';
+ while(frameBusy||zoneBusy)await new Promise(resolve=>setTimeout(resolve,20));
+ if(resetHistory)clearData(true);
  if(Math.abs(video.currentTime-time)>.00001){const done=once(video,'seeked');video.currentTime=time;await done;}
- await processFrame(video.currentTime);updateTime();setStatus('Pausa');
+ await processFrame(video.currentTime,true);updateTime();setStatus('Pausa');
 }
 $('camera').onclick=()=>{if(source==='camera'){++loadId;releaseSource();setStatus('Detenido');}else startCamera();};
 $('file').onchange=()=>{const file=$('file').files[0];if(file)openFile(file);$('file').value='';};
 $('play').onclick=async()=>{
  if(poseLoading||detectorLoading||manualScan)return;
- try{if(!video.paused){video.pause();cancelLoop();$('play').textContent='Reproducir';setStatus('Pausa · medición conservada');}
- else{if(video.ended)await seekTo(0);if(!bikeZones.locked){await $('scanZones').onclick();if(!bikeZones.locked){setStatus('No hay zonas confirmadas. Ajusta el detector y vuelve a detectar.');return;}}await initPose();video.playbackRate=Number($('speed').value);await video.play();$('play').textContent='Pausar';schedule();}}catch(e){error(e);}
+ try{if(!video.paused){video.pause();cancelLoop();$('play').textContent='Analizar posturas desde el inicio';setStatus('Pausa · medición conservada');}
+ else{if(!bikeZones.locked||!bikeZones.zones.length){setStatus('Primero pulsa Detectar y fijar zonas.');return;}await initPose();await seekTo(0);lastMediaTime=-1;video.playbackRate=Number($('speed').value);await video.play();$('play').textContent='Pausar';schedule();}}catch(e){error(e);}
 };
 $('step').onclick=async()=>{try{const fps=Math.max(1,Number($('fps').value)||30);await seekTo(Math.min(video.duration,video.currentTime+1/fps),false);}catch(e){error(e);}};
 $('seek').onchange=async()=>{try{await seekTo(Number($('seek').value));}catch(e){error(e);}};
 $('speed').onchange=()=>{video.playbackRate=Number($('speed').value);};
-$('reset').onclick=()=>{clearData();setStatus('Medición reiniciada');if(video.paused&&pose&&source)Promise.resolve(processFrame(video.currentTime)).catch(error);};
+$('reset').onclick=()=>{clearData(true);setStatus('Medición reiniciada');if(video.paused&&pose&&source)Promise.resolve(processFrame(video.currentTime)).catch(error);};
 $('freeze').onchange=()=>{if($('freeze').checked){inputCanvas.width=video.videoWidth;inputCanvas.height=video.videoHeight;inputCtx.drawImage(video,0,0);frozen=true;}else{frozen=false;clearData();}};
-video.addEventListener('ended',()=>{cancelLoop();$('play').textContent='Reproducir';setStatus('Vídeo terminado · resultados conservados');});
+video.addEventListener('ended',()=>{cancelLoop();$('play').textContent='Analizar posturas desde el inicio';setStatus('Vídeo terminado · resultados conservados');});
 video.addEventListener('error',()=>{if(source)error(new Error('No se pudo decodificar el vídeo. Usa MP4 H.264.'));});
 $('export').onclick=()=>{const keys=['time_ms','cyclist','rpm','reference_rpm','quality','method','state','cycles','frozen_pixels'];const csv=keys.join(',')+'\n'+records.map(r=>keys.map(k=>JSON.stringify(r[k]??'')).join(',')).join('\n');download('cadence-diagnostic.csv',csv,'text/csv');};
 $('landmarks').onclick=()=>download('cadence-landmarks.json',JSON.stringify({version:3,pose_model:selectedPoseModel,pose_scope:poseScope(),zone_model:selectedModel,zone_model_name:MODELS[selectedModel].name,zones:bikeZones.zones,zones_locked:bikeZones.locked,source:source==='file'?$('fileName').textContent:'camera',width:video.videoWidth,height:video.videoHeight,references:Array.from({length:MAX_CYCLISTS},(_,i)=>$('expected'+(i+1)).value).map(x=>x===''?null:Number(x)),frames:poseRecords}),'application/json');
@@ -306,7 +307,7 @@ if(new URLSearchParams(location.search).has('test'))window.cadenceDebug={
 for(const id of ['showZones','showZoneData','showPose'])$(id).onchange=()=>draw(lastFound);
 $('scanZones').onclick=async()=>{
  const token=loadId,position=video.currentTime;
- video.pause();cancelLoop();$('play').textContent='Reproducir';
+ video.pause();cancelLoop();$('play').textContent='Analizar posturas desde el inicio';
  manualScan=true;clearData();zoneFailure='';$('scanZones').disabled=true;setModelLoading(detectorLoading);
  $('zoneModel').disabled=true;$('play').disabled=true;$('step').disabled=true;$('seek').disabled=true;
  const generation=zoneGeneration;
@@ -358,7 +359,7 @@ $('scanZones').onclick=async()=>{
 async function changeSelectedModel(){
  $('zoneModel').disabled=true;setModelLoading(true);$('modelStatus').textContent='Cambiando de modelo…';
  try{
- video.pause();cancelLoop();$('play').textContent='Reproducir';
+ video.pause();cancelLoop();$('play').textContent='Analizar posturas desde el inicio';
  $('layerDetector').checked=true;selectedModel=$('zoneModel').value;syncModelUI();resetZones();zoneFailure='';
  // Allow an in-flight inference to finish before closing its runtime.
  while(frameBusy||zoneBusy)await new Promise(resolve=>setTimeout(resolve,20));
@@ -410,7 +411,7 @@ async function applyLayers(){
  const limit=Number($('maxZones').value)||MAX_CYCLISTS;
  if(!Number.isInteger(limit)||limit<1||limit>64)throw Error('El máximo de zonas debe estar entre 1 y 64.');
  if(limit!==MAX_CYCLISTS){MAX_CYCLISTS=limit;tracks.maxTracks=limit;bikeZones.max=limit;renderReferences();}
- video.pause();cancelLoop();$('play').textContent='Reproducir';
+ video.pause();cancelLoop();$('play').textContent='Analizar posturas desde el inicio';
  if(!layer('layerPose'))$('layerCadence').checked=false;
  $('layerCadence').disabled=!layer('layerPose');
  clearData();zoneFailure='';
@@ -430,7 +431,7 @@ $('allLayers').onclick=()=>{for(const id of ['layerDetector','layerCrops','layer
 
 $('poseModel').onchange=()=>{
  layerChange=layerChange.catch(()=>{}).then(async()=>{
-  video.pause();cancelLoop();$('play').textContent='Reproducir';$('poseModel').disabled=true;
+  video.pause();cancelLoop();$('play').textContent='Analizar posturas desde el inicio';$('poseModel').disabled=true;
   try{
    while(frameBusy)await new Promise(resolve=>setTimeout(resolve,20));
    if(modelPromise)await modelPromise;

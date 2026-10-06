@@ -16,7 +16,7 @@
 <div class="controls">
 <button id="camera" class="primary">Iniciar cámara</button>
 <label class="file-label" for="file">Cargar vídeo</label><input id="file" type="file" accept="video/*,.mp4,.mov,.webm">
-<button id="play" disabled>Reproducir</button><button id="step" disabled>+1 fotograma</button><button id="reset">Reiniciar medición</button>
+<button id="play" disabled>Analizar posturas desde el inicio</button><button id="step" disabled>+1 fotograma</button><button id="reset">Reiniciar medición</button>
 </div>
 <div id="videoControls" class="panel hidden">
 <div id="fileName" class="help"></div>
@@ -45,11 +45,11 @@
 <div hidden aria-hidden="true"><button id="onlyBikes">Solo detector</button><button id="allLayers">Todas</button>
 <input id="layerDetector" type="checkbox" checked><input id="layerCrops" type="checkbox"><input id="layerZones" type="checkbox" checked><input id="layerPose" type="checkbox"><input id="layerCadence" type="checkbox" disabled></div>
 <p id="layerStatus" class="help">Detector inicial → zonas. Selecciona una postura para continuar.</p>
-<div class="controls"><button id="scanZones" disabled>Volver a detectar zonas</button><label><input id="showZones" type="checkbox" checked> Mostrar zonas</label></div>
+<div class="controls"><button id="scanZones" disabled>Detectar y fijar zonas</button><label><input id="showZones" type="checkbox" checked> Mostrar zonas</label></div>
 <div class="settings"><label><input id="showZoneData" type="checkbox" checked> Mostrar confianza y datos de zonas</label><label><input id="showPose" type="checkbox" checked> Dibujar postura (puntos y esqueleto)</label></div><p class="help">Estos controles solo cambian el dibujo. Detector = confianza al confirmar la zona; Puntos = confianza/visibilidad media de hombros, caderas, rodillas y tobillos.</p><p id="poseResults" class="help" role="status">Los modelos Pose también dibujan sus puntos durante la detección inicial. Selecciona una postura para seguir analizándolos durante la reproducción.</p>
-<div id="zoneStatus" class="help" role="status">Carga un vídeo y pulsa Reproducir: primero se confirmarán las zonas.</div>
-<p class="help"><strong>Reproducir:</strong> si faltan zonas, analiza seis instantes iniciales automáticamente; después reproduce el vídeo y procesa la postura seleccionada en cada zona. Las seis muestras no limitan el número de personas: el máximo de zonas se configura arriba.</p>
-<p class="help"><strong>Volver a detectar zonas:</strong> vuelve a localizar las personas y reinicia la medición. En un archivo, conserva la posición y deja el vídeo en pausa; pulsa Reproducir para continuar. Úsalo si cambia la cámara o falta alguna persona. Mantén la cámara fija durante la medición.</p>
+<div id="zoneStatus" class="help" role="status">Carga un vídeo y pulsa Detectar y fijar zonas.</div>
+<p class="help"><strong>1. Detectar y fijar zonas:</strong> analiza seis fotogramas iniciales y conserva las zonas. Deja el vídeo en pausa.</p>
+<p class="help"><strong>2. Analizar posturas desde el inicio:</strong> reproduce desde 0 usando las zonas ya fijadas, sin repetir el detector. Durante la reproducción permite pausar; al pulsarlo de nuevo comienza otra pasada desde 0. Puedes repetir el análisis con otro modelo de postura. Mantén la cámara fija.</p>
 </div>
 <details class="panel"><summary>Comparar detecciones en una imagen</summary>
 <p class="help">Usa el modelo seleccionado arriba. Imagen completa a 640 píxeles, sin recortes ni confirmación de zonas. Solo muestra personas y bicicletas.</p>
@@ -67,5 +67,5 @@
 </details>
 <p class="help">El detector compara rodillas y tobillos y exige movimiento periódico antes de mostrar RPM. Una persona que no se reconoce se muestra sin medición. Los dibujos esquemáticos pueden no ser reconocidos por el modelo de personas.</p>
 </main>
-<script src="./cadence.js?v=posepreview1"></script><script src="./bike-zones.js?v=posepreview1"></script><script src="./measure.js?v=posepreview1" type="module"></script>
+<script src="./cadence.js?v=twophases1"></script><script src="./bike-zones.js?v=twophases1"></script><script src="./measure.js?v=twophases1" type="module"></script>
 </body></html>

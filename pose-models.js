@@ -1,4 +1,4 @@
-import {createZoneDetector,downloadModel} from './zone-detectors.js?v=posepreview1';
+import {createZoneDetector,downloadModel} from './zone-detectors.js?v=twophases1';
 export const POSE_MODELS={
  mediapipe_lite:{name:'MediaPipe Pose Lite',variant:'lite'},
  mediapipe_full:{name:'MediaPipe Pose Full',variant:'full'},

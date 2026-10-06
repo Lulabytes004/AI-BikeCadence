@@ -32,15 +32,16 @@ test('selecting posture eagerly loads it with progress and None closes it while 
  finish();await changing;assert.match(get('poseStatus').textContent,/LISTO/);assert.equal(get('poseProgress').hidden,true);assert.equal(debug.zones.zones.length,1);
  get('poseModel').value='none';await get('poseModel').onchange();assert.equal(closed,1);assert.equal(get('layerPose').checked,false);assert.equal(get('layerCadence').checked,false);assert.equal(debug.zones.locked,true);
 });
-test('Play automatically scans missing zones, then plays; Repeat leaves a file paused at its prior position',async()=>{
+test('explicit zone scan precedes posture playback, which restarts without redetection',async()=>{
  const {get,debug,video}=harness(),samples=[];
  debug.setZoneModel({close(){},async detect(){samples.push(video.currentTime);return {detections:[{categories:[{categoryName:'person',score:.9}],boundingBox:{originX:200,originY:100,width:150,height:350}}]};}});
  await debug.openFile({name:'people.mp4'});for(let i=0;i<8;i++)await new Promise(resolve=>setImmediate(resolve));
- samples.length=0;await get('play').onclick();
+ samples.length=0;await get('play').onclick();assert.equal(samples.length,0);assert.equal(video.paused,true);
+ await get('scanZones').onclick();await get('play').onclick();
  assert.equal(samples.length,30);assert.equal(debug.zones.locked,true);assert.equal(video.paused,false);
  await get('play').onclick();assert.equal(video.paused,true);video.currentTime=4;
  samples.length=0;await get('scanZones').onclick();assert.equal(samples.length,30);assert.equal(video.currentTime,4);assert.equal(video.paused,true);
- samples.length=0;await get('play').onclick();assert.equal(samples.length,0);assert.equal(video.paused,false);
+ samples.length=0;await get('play').onclick();assert.equal(samples.length,0);assert.equal(video.paused,false);assert.equal(video.currentTime,0);assert.equal(debug.zones.locked,true);
 });
 
 test('zone confidence and raw skeleton can be toggled independently and borders are solid',()=>{
@@ -59,7 +60,7 @@ test('default full-image scan needs six inferences instead of thirty',async()=>{
  const {get,debug}=harness();get('detectorTiles').checked=false;get('layerCrops').checked=false;let calls=0;
  debug.setZoneModel({close(){},async detect(){calls++;return {detections:[{categories:[{categoryName:'person',score:.9}],boundingBox:{originX:200,originY:100,width:150,height:350}}]};}});
  await debug.openFile({name:'people.mp4'});for(let i=0;i<4;i++)await new Promise(resolve=>setImmediate(resolve));calls=0;
- await get('play').onclick();assert.equal(calls,6);assert.equal(debug.zones.locked,true);
+ await get('scanZones').onclick();assert.equal(calls,6);assert.equal(debug.zones.locked,true);
 });
 test('paused zone scan analyzes posture at the restored frame without recording cadence',async()=>{
  const {get,debug,video,draws}=harness();get('detectorTiles').checked=false;get('layerCrops').checked=false;get('showPose').checked=true;
