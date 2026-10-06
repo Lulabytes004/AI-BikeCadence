@@ -73,7 +73,7 @@ export async function createZoneDetector(key,trainedBytes,threshold=.45,options=
  const config=MODELS[key];if(!config)throw Error('Modelo desconocido.');
  const progress=options.onProgress||(()=>{});progress({stage:'runtime'});
  if(config.type==='mediapipe'){
-  if(config.local&&!trainedBytes)throw Error('Extrae el ZIP del resultado y elige model.tflite en Cargar modelo entrenado.');
+  if(config.local&&!trainedBytes)throw Error(key==='lite3'?'Lite3 necesita su archivo .tflite. Pulsa «descarga oficial INT8» junto al selector y después «Cargar archivo del modelo». No necesitas un ZIP de entrenamiento.':'Extrae el ZIP del resultado y elige model.tflite en Cargar archivo del modelo.');
   const mod=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32');
   const vision=await mod.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm');
   const bytes=config.local?trainedBytes:await downloadModel(config.url,progress);progress({stage:'prepare'});

@@ -355,6 +355,7 @@ function syncModelUI(){
  if(!allowed.includes(select.value))select.value=config.pose?'person':'bicycle';
  $('localModelControls').hidden=!config.local;
  $('lite3Help').hidden=selectedModel!=='lite3';
+ if(selectedModel==='lite3'&&!trainedBytes)$('trainedModelName').textContent='Descarga EfficientDet-Lite3 INT8 desde el enlace de abajo y carga su .tflite. No es un resultado de entrenamiento.';
  $('objectsHelp').textContent=config.pose?'Este modelo solo reconoce personas.':config.local&&selectedModel!=='lite3'?'Modelo entrenado: bicicleta y bicicleta de spinning. Todo conserva sus categorías propias.':'Todo muestra las 80 categorías COCO. Persona = 0, bicicleta = 1, moto = 3.';
 }
 syncModelUI();

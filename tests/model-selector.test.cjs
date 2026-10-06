@@ -65,3 +65,5 @@ test('streamed model download reports progress and rejects failed requests',asyn
   global.fetch=async()=>({ok:false,status:404});await assert.rejects(downloadModel('mock'),/HTTP 404/);
  }finally{global.fetch=original;}
 });
+
+test('Lite3 missing-file message points to its official download',async()=>{const {createZoneDetector}=await modulePromise;await assert.rejects(createZoneDetector('lite3',null),/descarga oficial INT8/);});
