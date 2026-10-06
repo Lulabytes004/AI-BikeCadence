@@ -45,3 +45,10 @@ test('slow inference confirms repeated zones and two missed observations expire 
  assert.equal(tracker.zones.length,1);tracker.update([],6900);assert.equal(tracker.zones.length,1);
  tracker.update([],9200);assert.equal(tracker.zones.length,0);
 });
+
+test('six samples can confirm 16 people without requiring bicycles',()=>{
+ const zones=new BikeZones(32),people=Array.from({length:16},(_,i)=>({label:'person',score:.9,x:.03+(i%4)*.24,y:.02+Math.floor(i/4)*.24,w:.10,h:.18}));
+ for(const t of [0,700,1400,2100,2800,3500])zones.update(people,t);
+ zones.lock();assert.equal(zones.zones.length,16);assert.equal(zones.locked,true);
+ assert.ok(zones.zones.every(z=>z.kind==='occupied'));
+});

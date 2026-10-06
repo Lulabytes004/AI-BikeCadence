@@ -46,7 +46,12 @@ test('actual YOLO26 split layout converts normalized xywh to source boxes',async
  const result=decodeSplitYolo(logits,boxes,1280,720,.25,{classIds:[1,3],maxDet:20});assert.equal(result.detections.length,2);assert.deepEqual(result.detections[0].boundingBox,{originX:480,originY:200,width:320,height:320});
 });
 
-test('optional layers start off and objects have readable names',()=>{const html=fs.readFileSync(require('node:path').join(__dirname,'../measure.html'),'utf8');for(const id of ['layerCrops','layerZones','layerPose','layerCadence'])assert.doesNotMatch(html.match(new RegExp('<input id="'+id+'"[^>]*>'))[0],/checked/);assert.match(html,/id="detectorObjects"/);assert.doesNotMatch(html,/id="detectorClasses"/);});
+test('phases are automatic, posture defaults to None and people are the default target',()=>{
+ const html=fs.readFileSync(require('node:path').join(__dirname,'../measure.html'),'utf8');
+ assert.match(html,/<option value="none" selected>/);assert.match(html,/<option value="person" selected>/);
+ assert.match(html,/<div hidden aria-hidden="true"><button id="onlyBikes"/);
+ assert.doesNotMatch(html,/Capas adicionales|Z1–Z8|hasta ocho/);assert.match(html,/id="maxZones"[^>]*max="64"[^>]*value="32"/);
+});
 
 test('model information describes served ONNX sizes and device-specific references',async()=>{
  const {MODELS}=await modulePromise;

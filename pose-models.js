@@ -1,4 +1,4 @@
-import {createZoneDetector} from './zone-detectors.js?v=lite-auto1';
+import {createZoneDetector,downloadModel} from './zone-detectors.js?v=auto-phases1';
 export const POSE_MODELS={
  mediapipe_lite:{name:'MediaPipe Pose Lite',variant:'lite'},
  mediapipe_full:{name:'MediaPipe Pose Full',variant:'full'},
@@ -25,17 +25,20 @@ export function selectCropPose(poses){
  return poses.slice().sort((a,b)=>rank(b)-rank(a))[0];
  function rank(p){const hip=(p[23].x+p[24].x)/2;return Math.min(...[11,12,23,24].map(i=>p[i].visibility??0))-.5*Math.abs(hip-.5);}
 }
-export async function createPoseModel(key){
+export async function createPoseModel(key,{onProgress=()=>{},maxPoses=32,scope='zones'}={}){
  const config=POSE_MODELS[key];if(!config)throw Error('Modelo de postura desconocido.');
+ onProgress({stage:'runtime'});
  let backend;
  if(config.yolo){
-  const detector=await createZoneDetector(key,null,.25,{classIds:[0],maxDet:8});
+  const detector=await createZoneDetector(key,null,.25,{classIds:[0],maxDet:scope==='zones'?1:maxPoses,onProgress});
   backend={async detect(input){const result=await detector.detect(input);return result.detections.map(d=>cocoLandmarks(d.keypoints??[],input.width,input.height));},close:()=>detector.close()};
  }else{
   const mod=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32');
   const vision=await mod.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm');
   // IMAGE mode avoids sharing temporal tracking state between different zone crops.
-  const options={baseOptions:{modelAssetPath:`https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_${config.variant}/float16/1/pose_landmarker_${config.variant}.task`,delegate:'GPU'},runningMode:'IMAGE',numPoses:8,minPoseDetectionConfidence:.5,minPosePresenceConfidence:.5};
+  const bytes=await downloadModel(`https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_${config.variant}/float16/1/pose_landmarker_${config.variant}.task`,onProgress);
+  onProgress({stage:'prepare'});
+  const options={baseOptions:{modelAssetBuffer:bytes,delegate:'GPU'},runningMode:'IMAGE',numPoses:scope==='zones'?1:maxPoses,minPoseDetectionConfidence:.5,minPosePresenceConfidence:.5};
   let model;try{model=await mod.PoseLandmarker.createFromOptions(vision,options);}catch{options.baseOptions.delegate='CPU';model=await mod.PoseLandmarker.createFromOptions(vision,options);}
   backend={detect:input=>model.detect(input).landmarks??[],close:()=>model.close()};
  }

@@ -175,6 +175,24 @@
     signals.push({name:'Pies L-R',v:(p[27].y-p[28].y)/scale,q:visibility(p[23],p[24],p[27],p[28],p[11],p[12]),points:[27,28]});
     return signals;
   }
+  function minimumAssignment(costs){
+    const n=costs.length;if(!n)return [];const m=costs[0].length;
+    const u=Array(n+1).fill(0),v=Array(m+1).fill(0),p=Array(m+1).fill(0),way=Array(m+1).fill(0);
+    for(let i=1;i<=n;i++){
+      p[0]=i;let j0=0;const min=Array(m+1).fill(Infinity),used=Array(m+1).fill(false);
+      do{
+        used[j0]=true;const i0=p[j0];let delta=Infinity,j1=0;
+        for(let j=1;j<=m;j++)if(!used[j]){
+          const cur=costs[i0-1][j-1]-u[i0]-v[j];if(cur<min[j]){min[j]=cur;way[j]=j0;}
+          if(min[j]<delta){delta=min[j];j1=j;}
+        }
+        for(let j=0;j<=m;j++)if(used[j]){u[p[j]]+=delta;v[j]-=delta;}else min[j]-=delta;
+        j0=j1;
+      }while(p[j0]!==0);
+      do{const j1=way[j0];p[j0]=p[j1];j0=j1;}while(j0);
+    }
+    const matches=Array(n).fill(-1);for(let j=1;j<=m;j++)if(p[j])matches[p[j]-1]=j-1;return matches;
+  }
   class PoseTracks {
     constructor(maxTracks=8){this.maxTracks=maxTracks;this.tracks=[];}
     reset(){this.tracks=[];}
@@ -197,23 +215,10 @@
         if(!duplicate)unique.push(p);
       }
       const ordered=unique.slice(0,this.maxTracks).sort((a,b)=>Math.round(a.y/.18)-Math.round(b.y/.18)||a.x-b.x);
-      // Minimum-total-distance assignment; eight tracks need at most 256 masks.
-      // An unmatched pose costs .28, so a distant person cannot steal a history.
-      const memo=new Map();
-      function assign(i,mask){
-        if(i===ordered.length)return {cost:0,matches:[]};
-        const key=i+':'+mask;if(memo.has(key))return memo.get(key);
-        const next=assign(i+1,mask);let best={cost:.28+next.cost,matches:[-1,...next.matches]};
-        for(let j=0;j<existing.length;j++){
-          if(mask&(1<<j))continue;
-          const d=distance(ordered[i].anchor,existing[j].anchor);
-          if(d>=.28)continue;
-          const rest=assign(i+1,mask|(1<<j)),cost=d+rest.cost;
-          if(cost<best.cost)best={cost,matches:[j,...rest.matches]};
-        }
-        memo.set(key,best);return best;
-      }
-      const matches=assign(0,0).matches,seen=new Set();
+      // Polynomial-time global assignment; scalable beyond eight riders.
+      // Each observation has a dummy unmatched column costing .28.
+      const costs=ordered.map(p=>[...existing.map(q=>{const d=distance(p.anchor,q.anchor);return d<.28?d:1e6;}),...ordered.map(()=>.28)]);
+      const matches=minimumAssignment(costs).map(j=>j<existing.length?j:-1),seen=new Set();
       for(let i=0;i<ordered.length;i++){
         const p=ordered[i];let track=matches[i]===-1?null:existing[matches[i]];
         if(!track){

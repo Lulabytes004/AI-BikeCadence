@@ -77,3 +77,25 @@ test('isolated false pose never appears or reserves a cyclist number',()=>{
  }
  assert.equal(tracks[0].x,.13);assert.equal(tracks[1].x,.375);
 });
+
+test('32 riders keep separate histories with shuffled observations',()=>{
+ const tracker=new PoseTracks(32),positions=Array.from({length:32},(_,i)=>({x:.06+(i%8)*.12,y:.03+Math.floor(i/8)*.23}));
+ function crowdedPose(i,t){
+  const {x,y}=positions[i],lm=Array.from({length:33},()=>({x,y,visibility:.99}));
+  for(const k of [11,12])lm[k].y=y+.02;
+  for(const k of [23,24])lm[k].y=y+.06;
+  for(const k of [25,26])lm[k].y=y+.11;
+  const movement=.025*Math.sin(2*Math.PI*(50+i*2)*t/60000);
+  lm[27].y=y+.17+movement;lm[28].y=y+.17-movement;return lm;
+ }
+ let tracks;
+ for(let frame=0;frame<400;frame++){
+  const t=frame*1000/30,indices=positions.map((_,i)=>(i+frame)%32);if(frame%2)indices.reverse();
+  tracks=tracker.update(indices.map(i=>crowdedPose(i,t)),t);
+ }
+ assert.equal(tracks.length,32);assert.equal(new Set(tracks.map(t=>t.id)).size,32);
+ for(const track of tracks){
+  const i=positions.findIndex(p=>Math.abs(p.x-track.x)<1e-8&&Math.abs(p.y+.06-track.y)<1e-8);
+  assert.notEqual(i,-1);assert.ok(Math.abs(track.result.rpm-(50+i*2))<1,JSON.stringify(track.result));
+ }
+});

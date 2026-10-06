@@ -1,28 +1,34 @@
-AI-BikeCadence — detector inicial + postura por zona
+AI-BikeCadence — fases automáticas
+Rama: feat/pose-per-zone
 
-Esta versión parte de feat/model-selector (7082f6d).
-No se ha publicado en GitHub Pages.
+En la carpeta del proyecto:
+git switch feat/pose-per-zone
+git pull origin feat/pose-per-zone
+python3 -m http.server 8080
 
-Para probarla:
-1. Extrae el ZIP y abre una terminal dentro de AI-BikeCadence.
-2. Ejecuta: python3 -m http.server 8000
-3. Abre http://localhost:8000/measure.html
-4. Selecciona el detector inicial y los objetos que detectará.
-5. Selecciona el modelo de postura y «Cada zona confirmada».
-6. Activa Posturas (activa también Detector y Confirmar zonas).
-7. Abre un vídeo. Usa «Analizar zonas / repetir» o reproduce los primeros segundos.
-8. Con las zonas fijadas, el detector deja de ejecutarse y la postura analiza cada recorte.
-9. Activa Cadencia cuando quieras calcular RPM.
+Abre http://localhost:8080/measure.html y recarga con Cmd+Shift+R.
 
-Postura: MediaPipe Lite, Full, Heavy; YOLO26n-pose y YOLO26s-pose.
-El modelo de postura se elige de forma independiente del detector.
-YOLO pose reconoce personas, no bicicletas. También puede usarse como detector inicial de personas.
-La postura puede cambiarse conservando las zonas; se reinicia su historial de cadencia.
-El modo Imagen completa permite comparar con el procesamiento sin recortes.
-La exportación JSON incluye modelo de postura, ámbito y zona de cada pose.
-Mantén la cámara fija; vuelve a detectar si cambia la composición de la escena.
+1. Elige el detector inicial. Persona es el objetivo predeterminado.
+2. Elige la postura: Ninguno, MediaPipe Lite/Full/Heavy o YOLO26n-pose/YOLO26s-pose.
+   Un modelo de postura se carga inmediatamente al seleccionarlo: progreso y estado visibles.
+   Ninguno detecta y confirma zonas sin postura ni cadencia.
+3. Carga un vídeo y pulsa Reproducir.
+   Si faltan zonas confirmadas, toma seis muestras iniciales con el archivo pausado.
+   Después reproduce el archivo, analizando cada zona con la postura seleccionada.
+   Las seis muestras no son un límite de seis personas.
+4. Volver a detectar zonas rehace la detección, conserva la posición del archivo,
+   borra la medición y deja el archivo en pausa. Pulsa Reproducir para continuar.
+   En la cámara, la detección continúa con las imágenes en directo.
 
-Verificación: 54 pruebas automatizadas pasan, incluida conversión de puntos COCO,
-restauración de coordenadas de recortes y preservación de confianza YOLO.
-No se ha validado todavía la inferencia real ni el rendimiento en el navegador del usuario.
-MediaPipe usa modo IMAGE para no compartir estado de seguimiento entre zonas.
+No es necesario activar capas manualmente.
+El detector siempre participa en la fase inicial y se detiene al fijar las zonas.
+No se requiere detectar bicicletas: basta Persona -> zona -> postura.
+Máximo de zonas: 32 por defecto, configurable entre 1 y 64.
+Máximo de detecciones es un ajuste independiente del detector; debe permitir
+el número de personas esperado. La salida real depende del modelo y de la imagen.
+Cambiar solo la postura conserva las zonas y reinicia el historial de cadencia.
+Mantén la cámara fija. Si cambia la escena, vuelve a detectar las zonas.
+
+Pruebas automatizadas: reproducción y repetición, carga inmediata de postura,
+Ninguno, 16 zonas de personas y seguimiento de 32 ciclistas con identidades
+independientes. Todavía falta medir el rendimiento real en el navegador del usuario.
