@@ -1,4 +1,4 @@
-import {MODELS,createZoneDetector} from './zone-detectors.js?v=yolo11pose1';
+import {MODELS,createZoneDetector} from './zone-detectors.js?v=posepreview1';
 const $=id=>document.getElementById(id),video=$('video'),canvas=$('overlay'),ctx=canvas.getContext('2d');
 const inputCanvas=document.createElement('canvas'),inputCtx=inputCanvas.getContext('2d',{willReadFrequently:true});
 const pixelCanvas=document.createElement('canvas');pixelCanvas.width=96;pixelCanvas.height=54;
@@ -16,7 +16,7 @@ function detectorOptions(){
  return {maxDet:maximum,classIds:value==='all'?null:[{person:0,bicycle:1,motorcycle:3}[value]]};
 }
 
-let rawBoxes=[];
+let rawBoxes=[],detectorPoseFrame=-1,detectorPoseLandmarks=[];
 let zoneGeneration=0,zoneBusy=false,selectedModel='original',trainedBytes=null,trainedYoloBytes=null;
 async function initZones(){
  if(!layer('layerDetector'))return null;
@@ -30,7 +30,7 @@ async function initZones(){
  })();objectPromise=pending;
  try{return await pending;}catch(e){if(generation===zoneGeneration){zoneFailure='No se pudo cargar '+MODELS[key].name+': '+(e.message||String(e));$('modelStatus').textContent=zoneFailure;}return null;}finally{if(objectPromise===pending)objectPromise=null;if(generation===zoneGeneration)setModelLoading(false);}
 }
-function resetZones(){zoneGeneration++;bikeZones.reset();rawBoxes=[];lastZoneScan=-Infinity;zoneScanCount=0;detectorCalls=0;detectorMs=0;}
+function resetZones(){zoneGeneration++;bikeZones.reset();rawBoxes=[];detectorPoseFrame=-1;detectorPoseLandmarks=[];lastZoneScan=-Infinity;zoneScanCount=0;detectorCalls=0;detectorMs=0;}
 async function scanZones(t,landmarks=[]){
  if(!layer('layerDetector')||!objectDetector||zoneBusy||(layer('layerZones')&&(bikeZones.locked||zoneScanCount>=6))||t-lastZoneScan<650||frozen)return;
  const generation=zoneGeneration,detector=objectDetector;
@@ -48,6 +48,12 @@ async function scanZones(t,landmarks=[]){
    }
   }
   rawBoxes=boxes;
+  detectorPoseFrame=video.currentTime;
+  const cocoSlots=[0,2,5,7,8,11,12,13,14,15,16,23,24,25,26,27,28];
+  detectorPoseLandmarks=boxes.filter(b=>b.keypoints.length).map(b=>{
+   const lm=Array.from({length:33},()=>({x:0,y:0,visibility:0}));
+   b.keypoints.forEach((p,i)=>{if(cocoSlots[i]!==undefined)lm[cocoSlots[i]]={x:p.x,y:p.y,visibility:p.score??0};});return lm;
+  });
   if(layer('layerZones'))bikeZones.update([...boxes,...globalThis.poseZoneBoxes(landmarks)],t);zoneScanCount++;
   if(layer('layerZones')&&zoneScanCount>=6)bikeZones.lock();
  }catch(e){if(generation===zoneGeneration){zoneFailure='Error al detectar zonas: '+(e.message||String(e));$('modelStatus').textContent='ERROR DE DETECCIÓN: '+zoneFailure;zoneScanCount=6;}}
@@ -98,7 +104,7 @@ async function initPose(){
  modelPromise=(async()=>{
   let createPoseModel=poseFactoryOverride;
   if(!createPoseModel){
-   ({createPoseModel}=await import('./pose-models.js?v=yolo11pose1'));
+   ({createPoseModel}=await import('./pose-models.js?v=posepreview1'));
   }
   pose=await createPoseModel(selectedPoseModel,{maxPoses:MAX_CYCLISTS,scope:poseScope(),onProgress:showPoseProgress});
   poseRuntimeConfig=poseConfig();
@@ -173,7 +179,7 @@ function stationaryPixels(pixels,t){
  lastPixels=new Uint8ClampedArray(pixels);
  return t-lastChangeTime>=650;
 }
-function processFrame(mediaTime){
+function processFrame(mediaTime,preview=false){
  if(frameBusy || video.readyState<2 || video.seeking || mediaTime===lastMediaTime)return;
  if(mediaTime<lastMediaTime)clearData();
  const mediaDelta=lastMediaTime<0?1:Math.max(.01,(mediaTime-lastMediaTime)*1000);
@@ -188,8 +194,8 @@ function processFrame(mediaTime){
   showZoneStatus();
   lastPoseLandmarks=result.landmarks??[];lastPoseZoneIds=result.zoneIds??[];lastPoseMs=layer('layerPose')?performance.now()-poseStarted:0;
   $('poseResults').textContent=layer('layerPose')?(lastPoseLandmarks.length+' posturas en '+(poseScope()==='zones'?bikeZones.zones.length+' zonas':'la imagen completa')+' · '+lastPoseMs.toFixed(0)+' ms por fotograma'+(!lastPoseLandmarks.length?' · El modelo no ha devuelto puntos todavía.':'')):'Ninguno: no se analiza postura.';
-  const found=layer('layerCadence')&&layer('layerPose')?tracks.update(result.landmarks??[],t,video.videoWidth/video.videoHeight,still):(result.landmarks??[]).map((lm,i)=>({id:i+1,lm,x:lm[23]?.x??0,result:{rpm:null,state:'waiting',quality:0,cycles:0}}));
-  lastFound=found;render(found);draw(found);updateTime();record(t,found,result.landmarks??[],still,result.zoneIds??[]);
+  const found=!preview&&layer('layerCadence')&&layer('layerPose')?tracks.update(result.landmarks??[],t,video.videoWidth/video.videoHeight,still):(result.landmarks??[]).map((lm,i)=>({id:i+1,lm,x:lm[23]?.x??0,result:{rpm:null,state:'waiting',quality:0,cycles:0}}));
+  lastFound=found;render(found);draw(found);updateTime();if(!preview)record(t,found,result.landmarks??[],still,result.zoneIds??[]);
   const waiting=layer('layerPose')&&poseScope()==='zones'&&!bikeZones.locked;
   setStatus(waiting?'Esperando zonas confirmadas…':!layer('layerCadence')?'Detección sin cálculo de RPM':still?'Imagen quieta':found.length?'Analizando ciclistas…':'No veo una persona');
  };
@@ -245,9 +251,10 @@ function draw(found){
    zoneText(lines,z.x*canvas.width,z.y*canvas.height,color);
   }
  }
- if(!layer('layerPose')||!$('showPose').checked)return;
+ if(!$('showPose').checked)return;
+ const visiblePoses=layer('layerPose')?lastPoseLandmarks:(Math.abs(video.currentTime-detectorPoseFrame)<.001?detectorPoseLandmarks:[]);
  // Draw raw pose output immediately, independently of cadence track confirmation.
- lastPoseLandmarks.forEach((lm,i)=>{
+ visiblePoses.forEach((lm,i)=>{
   const zoneId=poseZoneIndex(i),color=colors[((zoneId??i+1)-1)%colors.length];ctx.strokeStyle=color;ctx.fillStyle=color;ctx.lineWidth=3;
   for(const [a,b] of skeletonConnections){if(!usablePoint(lm[a])||!usablePoint(lm[b]))continue;ctx.beginPath();ctx.moveTo(lm[a].x*canvas.width,lm[a].y*canvas.height);ctx.lineTo(lm[b].x*canvas.width,lm[b].y*canvas.height);ctx.stroke();}
   for(const p of lm){if(!usablePoint(p))continue;ctx.beginPath();ctx.arc(p.x*canvas.width,p.y*canvas.height,4,0,Math.PI*2);ctx.fill();}
@@ -326,7 +333,18 @@ $('scanZones').onclick=async()=>{
    }
    if(token!==loadId||generation!==zoneGeneration)return;
    if(Math.abs(video.currentTime-position)>.00001){const done=once(video,'seeked');video.currentTime=position;await done;}
-   updateTime();setStatus(zoneFailure?'Error al analizar zonas':'Zonas analizadas · pulsa Reproducir');
+   // Analyze the restored frame too: a paused preview must show the selected posture.
+   if(!zoneFailure&&layer('layerPose')){await initPose();sourcePixels();lastMediaTime=-1;await processFrame(position,true);lastMediaTime=-1;}
+   else if(!zoneFailure&&MODELS[$('zoneModel').value]?.pose&&Math.abs(position-detectorPoseFrame)>=.001){
+    // Initial Pose output belongs to the displayed frame, never the last scan sample.
+    sourcePixels();const result=await objectDetector.detect(inputCanvas);
+    const slots=[0,2,5,7,8,11,12,13,14,15,16,23,24,25,26,27,28];
+    detectorPoseLandmarks=(result.detections??[]).filter(d=>d.keypoints?.length).map(d=>{
+     const lm=Array.from({length:33},()=>({x:0,y:0,visibility:0}));
+     d.keypoints.forEach((p,i)=>{if(slots[i]!==undefined)lm[slots[i]]={x:p.x/inputCanvas.width,y:p.y/inputCanvas.height,visibility:p.score??0};});return lm;
+    });detectorPoseFrame=position;
+   }
+   updateTime();setStatus(zoneFailure?'Error al analizar zonas':'Zonas y vista previa analizadas · pulsa Reproducir');
   }else if(source&&video.readyState>=2){sourcePixels();await scanZones(video.currentTime*1000);setStatus('Buscando zonas en la cámara…');}
  }catch(e){if(token===loadId){zoneFailure=e.message||String(e);showZoneStatus();}}
  finally{

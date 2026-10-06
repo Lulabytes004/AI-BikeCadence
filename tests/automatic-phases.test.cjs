@@ -61,3 +61,13 @@ test('default full-image scan needs six inferences instead of thirty',async()=>{
  await debug.openFile({name:'people.mp4'});for(let i=0;i<4;i++)await new Promise(resolve=>setImmediate(resolve));calls=0;
  await get('play').onclick();assert.equal(calls,6);assert.equal(debug.zones.locked,true);
 });
+test('paused zone scan analyzes posture at the restored frame without recording cadence',async()=>{
+ const {get,debug,video,draws}=harness();get('detectorTiles').checked=false;get('layerCrops').checked=false;get('showPose').checked=true;
+ const lm=Array.from({length:33},()=>({x:.3,y:.4,visibility:.9})),frames=[];
+ debug.setPoseFactory(async()=>({close(){},async infer(input,t,zones){frames.push(video.currentTime);return {landmarks:zones.length?[lm]:[],zoneIds:zones.length?[zones[0].id]:[]};}}));
+ debug.setZoneModel({close(){},async detect(){return {detections:[{categories:[{categoryName:'person',score:.9}],boundingBox:{originX:200,originY:100,width:150,height:350}}]};}});
+ get('poseModel').value='yolo26pose';await get('poseModel').onchange();await debug.openFile({name:'people.mp4'});
+ for(let i=0;i<4;i++)await new Promise(resolve=>setImmediate(resolve));video.currentTime=2;draws.points=0;
+ await get('scanZones').onclick();assert.equal(video.currentTime,2);assert.equal(video.paused,true);assert.equal(frames.at(-1),2);
+ assert.match(get('poseResults').textContent,/1 posturas/);assert.ok(draws.points>0);
+});
