@@ -1,8 +1,9 @@
-import {createZoneDetector,downloadModel} from './zone-detectors.js?v=overlays1';
+import {createZoneDetector,downloadModel} from './zone-detectors.js?v=yolo11pose1';
 export const POSE_MODELS={
  mediapipe_lite:{name:'MediaPipe Pose Lite',variant:'lite'},
  mediapipe_full:{name:'MediaPipe Pose Full',variant:'full'},
  mediapipe_heavy:{name:'MediaPipe Pose Heavy',variant:'heavy'},
+ yolo11pose:{name:'YOLO11n-pose',yolo:true},
  yolo26pose:{name:'YOLO26n-pose',yolo:true},
  yolo26spose:{name:'YOLO26s-pose',yolo:true}
 };

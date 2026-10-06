@@ -9,7 +9,7 @@ python3 -m http.server 8080
 Abre http://localhost:8080/measure.html y recarga con Cmd+Shift+R.
 
 1. Elige el detector inicial. Persona es el objetivo predeterminado.
-2. Elige la postura: Ninguno, MediaPipe Lite/Full/Heavy o YOLO26n-pose/YOLO26s-pose.
+2. Elige la postura: Ninguno, MediaPipe Lite/Full/Heavy o YOLO11n-pose/YOLO26n-pose/YOLO26s-pose.
    Un modelo de postura se carga inmediatamente al seleccionarlo: progreso y estado visibles.
    Ninguno detecta y confirma zonas sin postura ni cadencia.
 3. Carga un vídeo y pulsa Reproducir.

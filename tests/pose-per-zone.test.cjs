@@ -31,3 +31,14 @@ test('YOLO normalized coordinates retain confidence scores',async()=>{
  const output=decodeYolo(scaled,[1,1,57],640,640,640,.25,['person'],{pose:true,classIds:[0]});
  assert.equal(output.detections[0].keypoints[0].score,.75);
 });
+
+test('YOLO11n-pose is selectable and its raw 56-channel output maps to cadence joints',async()=>{
+ const {MODELS,decodeYolo}=await load('zone-detectors.js'),{POSE_MODELS,cocoLandmarks}=await load('pose-models.js');
+ assert.equal(MODELS.yolo11pose.pose,true);assert.notEqual(MODELS.yolo11pose.normalizedPose,true);
+ assert.equal(POSE_MODELS.yolo11pose.yolo,true);assert.match(MODELS.yolo11pose.url,/0d17b24163fbc33dec51d811d7be8db15b8df274\/yolo11n-pose\.onnx$/);
+ const html=fs.readFileSync(path.join(__dirname,'../measure.html'),'utf8');assert.match(html,/<option value="yolo11pose">YOLO11n-pose<\/option>/);
+ const data=new Float32Array(56);data.set([320,320,160,400,.9]);for(let i=0;i<17;i++)data.set([300+i,200+i,.8],5+i*3);
+ const output=decodeYolo(data,[1,56,1],640,640,640,.25,['person'],{pose:true,classIds:[0]});
+ assert.equal(output.detections.length,1);assert.equal(output.detections[0].keypoints.length,17);
+ const lm=cocoLandmarks(output.detections[0].keypoints,640,640);assert.equal(lm[25].x,313/640);assert.ok(Math.abs(lm[25].visibility-.8)<1e-6);
+});

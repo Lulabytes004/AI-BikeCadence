@@ -7,7 +7,9 @@ test('every UI option has a configured detector and advanced models use distinct
  const {MODELS}=await modulePromise;const html=fs.readFileSync(require('node:path').join(__dirname,'../measure.html'),'utf8');
  const selector=html.match(/id="zoneModel"[^>]*>([\s\S]*?)<\/select>/)[1];
  const keys=[...selector.matchAll(/value="([^"]+)"/g)].map(x=>x[1]);
- assert.deepEqual(keys.sort(),Object.keys(MODELS).sort());
+ const poseSelector=html.match(/id="poseModel"[^>]*>([\s\S]*?)<\/select>/)[1];
+ const poseKeys=[...poseSelector.matchAll(/value="([^"]+)"/g)].map(x=>x[1]).filter(k=>k.startsWith('yolo'));
+ assert.deepEqual([...new Set([...keys,...poseKeys])].sort(),Object.keys(MODELS).sort());
  assert.equal(new Set(['yolo','yolo_s','yolov8m'].map(k=>MODELS[k].url)).size,3);
  assert.match(MODELS.lite2.url,/efficientdet_lite2/);assert.equal(MODELS.trained.local,true);
 });
