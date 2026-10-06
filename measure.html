@@ -25,6 +25,14 @@
 <div class="panel">
 <div class="settings"><label>Detector de bicicletas <select id="zoneModel"><option value="original">EfficientDet original</option><option value="lite2">EfficientDet-Lite2 preentrenado</option><option value="trained">EfficientDet entrenado · archivo local</option><option value="yolo_trained">YOLO11 entrenado · archivo local</option><option value="yolov8n">YOLOv8n preentrenado</option><option value="yolo">YOLO11n preentrenado</option><option value="yolo_s">YOLO11s preentrenado</option><option value="yolo_m">YOLO11m preentrenado</option></select></label></div>
 <div class="controls"><label class="file-label" for="trainedModelFile">Cargar modelo entrenado</label><input id="trainedModelFile" type="file" accept=".tflite,.onnx"><span id="trainedModelName" class="help">Extrae tu ZIP del resultado y elige model.tflite o export/model.onnx. No se sube a ningún servidor.</span></div>
+<div class="settings"><button id="onlyBikes">Solo bicicletas</button><button id="allLayers">Todas las capas</button>
+<label><input id="layerDetector" type="checkbox" checked> Detector</label>
+<label><input id="layerCrops" type="checkbox" checked> Recortes</label>
+<label><input id="layerZones" type="checkbox" checked> Confirmar zonas</label>
+<label><input id="layerPose" type="checkbox" checked> Posturas</label>
+<label><input id="layerCadence" type="checkbox" checked> Cadencia</label>
+<label>Confianza del detector <input id="detectorConfidence" type="number" min="0.01" max="1" step="0.01" value="0.45"></label>
+</div><p id="layerStatus" class="help">Todas las capas activadas.</p>
 <div id="modelStatus" class="help" role="status">Seleccionado: EfficientDet original</div>
 <p class="help">Cambia de modelo y reproduce el mismo vídeo desde el inicio para comparar. El cambio pausa el vídeo y reinicia la medición. El vídeo se procesa en tu dispositivo. Para modelos lentos, pulsa «Analizar zonas / repetir»: examina seis instantes con el vídeo pausado y reinicia la medición. YOLO11m requiere más memoria y tiempo.</p>
 <div class="controls"><button id="scanZones" disabled>Analizar zonas / repetir</button><label><input id="showZones" type="checkbox" checked> Mostrar zonas</label></div>
@@ -33,9 +41,9 @@
 </div>
 <details class="panel"><summary>Comparar detecciones en una imagen</summary>
 <p class="help">Usa el modelo seleccionado arriba. Imagen completa a 640 píxeles, sin recortes ni confirmación de zonas. Solo muestra personas y bicicletas.</p>
-<input id="compareImage" type="file" accept="image/*"><label>Confianza mínima <input id="compareConfidence" type="number" min="0.01" max="1" step="0.01" value="0.25"></label>
+<label class="file-label" for="compareImage">Cargar imagen de prueba</label><input id="compareImage" type="file" accept="image/*"><label>Confianza mínima <input id="compareConfidence" type="number" min="0.01" max="1" step="0.01" value="0.25"></label>
 <button id="compareRun">Analizar imagen</button><p id="compareStatus">Selecciona la misma imagen que usaste en Colab.</p>
-<canvas id="compareCanvas" style="max-width:100%;height:auto"></canvas>
+<canvas id="compareCanvas" style="position:relative;width:100%;max-width:100%;height:auto"></canvas>
 </details>
 <div id="cards" class="cards"><div class="card" style="--color:#7dd3fc"><div>Ciclista</div><div class="rpm">-- <small>RPM</small></div><div class="detail">Esperando vídeo o cámara.</div></div></div>
 <details class="panel"><summary>Pruebas y diagnóstico</summary>

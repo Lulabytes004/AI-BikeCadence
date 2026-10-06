@@ -15,6 +15,15 @@ test('automatic scans lock zones, export them, and can be restarted from the UI'
  assert.equal(calls,30);assert.equal(sandbox.cadenceDebug.zones.zones.length,1);assert.equal(sandbox.cadenceDebug.zones.locked,true);
  get('landmarks').onclick();const data=JSON.parse(blobBody);assert.equal(data.version,3);assert.equal(data.zone_model,'original');assert.equal(data.zones.length,1);assert.equal(data.zones[0].kind,'bicycle');assert.equal(data.zones_locked,true);
  get('reset').onclick();assert.equal(sandbox.cadenceDebug.zones.zones.length,0);assert.equal(sandbox.cadenceDebug.zones.locked,false);
+ get('layerCrops').checked=false;get('layerZones').checked=false;get('layerPose').checked=false;get('layerCadence').checked=false;
+ sandbox.cadenceDebug.setModel({detectForVideo:()=>{throw Error('Disabled posture layer must not execute');}});
+ const before=calls;
+ for(const t of [5,5.7,6.4,7.1,7.8,8.5,9.2,9.9]){sandbox.cadenceDebug.processFrame(t);await new Promise(resolve=>setImmediate(resolve));}
+ assert.equal(calls-before,8,'direct mode runs once per sample and continues beyond six observations');
+ assert.equal(sandbox.cadenceDebug.zones.zones.length,0);
+ assert.equal(sandbox.cadenceDebug.tracks.tracks?.length??0,0);
+ get('layerDetector').checked=false;sandbox.cadenceDebug.processFrame(10.6);await new Promise(resolve=>setImmediate(resolve));assert.equal(calls-before,8);
+
 });
 
 test('paused file scan waits for six slow samples, restores position and keeps cadence history empty',async()=>{
