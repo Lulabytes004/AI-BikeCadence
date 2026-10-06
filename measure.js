@@ -1,4 +1,4 @@
-import {MODELS,createZoneDetector} from './zone-detectors.js?v=twophases1';
+import {MODELS,createZoneDetector} from './zone-detectors.js?v=v8pose1';
 const $=id=>document.getElementById(id),video=$('video'),canvas=$('overlay'),ctx=canvas.getContext('2d');
 const inputCanvas=document.createElement('canvas'),inputCtx=inputCanvas.getContext('2d',{willReadFrequently:true});
 const pixelCanvas=document.createElement('canvas');pixelCanvas.width=96;pixelCanvas.height=54;
@@ -104,7 +104,7 @@ async function initPose(){
  modelPromise=(async()=>{
   let createPoseModel=poseFactoryOverride;
   if(!createPoseModel){
-   ({createPoseModel}=await import('./pose-models.js?v=twophases1'));
+   ({createPoseModel}=await import('./pose-models.js?v=v8pose1'));
   }
   pose=await createPoseModel(selectedPoseModel,{maxPoses:MAX_CYCLISTS,scope:poseScope(),onProgress:showPoseProgress});
   poseRuntimeConfig=poseConfig();

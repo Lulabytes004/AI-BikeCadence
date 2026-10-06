@@ -1,5 +1,6 @@
-import {createZoneDetector,downloadModel} from './zone-detectors.js?v=twophases1';
+import {createZoneDetector,downloadModel} from './zone-detectors.js?v=v8pose1';
 export const POSE_MODELS={
+ yolov8pose:{name:'YOLOv8n-pose',yolo:true},
  mediapipe_lite:{name:'MediaPipe Pose Lite',variant:'lite'},
  mediapipe_full:{name:'MediaPipe Pose Full',variant:'full'},
  mediapipe_heavy:{name:'MediaPipe Pose Heavy',variant:'heavy'},
