@@ -89,5 +89,15 @@ export async function createZoneDetector(key,trainedBytes,threshold=.45,options=
  const metadata=session.inputMetadata?.[0],shape=metadata?.shape;
  if(shape&&(shape.length!==4||shape.slice(1).join(',')!=='3,640,640'||(typeof shape[0]==='number'&&shape[0]!==1))){await session.release();throw Error('YOLO: entrada incompatible con 640×640.');}
  const canvas=document.createElement('canvas');canvas.width=640;canvas.height=640;const ctx=canvas.getContext('2d',{willReadFrequently:true});
- return {async detect(input){const w=input.width,h=input.height,s=Math.min(640/w,640/h),rw=Math.round(w*s),rh=Math.round(h*s);ctx.fillStyle='rgb(114,114,114)';ctx.fillRect(0,0,640,640);ctx.drawImage(input,Math.floor((640-rw)/2),Math.floor((640-rh)/2),rw,rh);const pixels=ctx.getImageData(0,0,640,640).data,plane=640*640,data=new Float32Array(plane*3);for(let i=0;i<plane;i++)for(let c=0;c<3;c++)data[c*plane+i]=pixels[i*4+c]/255;const result=await session.run({[session.inputNames[0]]:new ort.Tensor('float32',data,[1,3,640,640])});if(config.splitOutput)return decodeSplitYolo(result.logits,result.pred_boxes,w,h,threshold,options);const output=result[session.outputNames[0]];if(config.normalizedPose){const copy=new Float32Array(output.data);for(let i=0;i<output.dims[1];i++){const j=i*57;for(let k=0;k<4;k++)copy[j+k]*=640;for(let k=6;k<57;k++)copy[j+k]*=640;}return decodeYolo(copy,output.dims,w,h,640,threshold,['person'],{...options,pose:true});}return decodeYolo(output.data,output.dims,w,h,640,threshold,config.pose?['person']:config.classes,{...options,pose:config.pose});},setOptions(value){options=value;},setThreshold(value){threshold=value;},close:()=>session.release()};
+ return {async detect(input){const w=input.width,h=input.height,s=Math.min(640/w,640/h),rw=Math.round(w*s),rh=Math.round(h*s);ctx.fillStyle='rgb(114,114,114)';ctx.fillRect(0,0,640,640);ctx.drawImage(input,Math.floor((640-rw)/2),Math.floor((640-rh)/2),rw,rh);const pixels=ctx.getImageData(0,0,640,640).data,plane=640*640,data=new Float32Array(plane*3);for(let i=0;i<plane;i++)for(let c=0;c<3;c++)data[c*plane+i]=pixels[i*4+c]/255;const result=await session.run({[session.inputNames[0]]:new ort.Tensor('float32',data,[1,3,640,640])});if(config.splitOutput)return decodeSplitYolo(result.logits,result.pred_boxes,w,h,threshold,options);const output=result[session.outputNames[0]];if(config.normalizedPose){const copy=scaleNormalizedPose(output.data,output.dims);return decodeYolo(copy,output.dims,w,h,640,threshold,['person'],{...options,pose:true});}return decodeYolo(output.data,output.dims,w,h,640,threshold,config.pose?['person']:config.classes,{...options,pose:config.pose});},setOptions(value){options=value;},setThreshold(value){threshold=value;},close:()=>session.release()};
+}
+
+export function scaleNormalizedPose(data,dims,size=640){
+ if(dims.length!==3||dims[0]!==1||dims[2]!==57)throw Error('YOLO26 pose: salida normalizada incompatible.');
+ const copy=new Float32Array(data);
+ for(let i=0;i<dims[1];i++){
+  const j=i*57;for(let k=0;k<4;k++)copy[j+k]*=size;
+  for(let k=6;k<57;k+=3){copy[j+k]*=size;copy[j+k+1]*=size;}
+ }
+ return copy;
 }

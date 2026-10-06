@@ -1,0 +1,28 @@
+AI-BikeCadence — detector inicial + postura por zona
+
+Esta versión parte de feat/model-selector (7082f6d).
+No se ha publicado en GitHub Pages.
+
+Para probarla:
+1. Extrae el ZIP y abre una terminal dentro de AI-BikeCadence.
+2. Ejecuta: python3 -m http.server 8000
+3. Abre http://localhost:8000/measure.html
+4. Selecciona el detector inicial y los objetos que detectará.
+5. Selecciona el modelo de postura y «Cada zona confirmada».
+6. Activa Posturas (activa también Detector y Confirmar zonas).
+7. Abre un vídeo. Usa «Analizar zonas / repetir» o reproduce los primeros segundos.
+8. Con las zonas fijadas, el detector deja de ejecutarse y la postura analiza cada recorte.
+9. Activa Cadencia cuando quieras calcular RPM.
+
+Postura: MediaPipe Lite, Full, Heavy; YOLO26n-pose y YOLO26s-pose.
+El modelo de postura se elige de forma independiente del detector.
+YOLO pose reconoce personas, no bicicletas. También puede usarse como detector inicial de personas.
+La postura puede cambiarse conservando las zonas; se reinicia su historial de cadencia.
+El modo Imagen completa permite comparar con el procesamiento sin recortes.
+La exportación JSON incluye modelo de postura, ámbito y zona de cada pose.
+Mantén la cámara fija; vuelve a detectar si cambia la composición de la escena.
+
+Verificación: 54 pruebas automatizadas pasan, incluida conversión de puntos COCO,
+restauración de coordenadas de recortes y preservación de confianza YOLO.
+No se ha validado todavía la inferencia real ni el rendimiento en el navegador del usuario.
+MediaPipe usa modo IMAGE para no compartir estado de seguimiento entre zonas.
