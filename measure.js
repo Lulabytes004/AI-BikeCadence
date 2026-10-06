@@ -1,4 +1,4 @@
-import {MODELS,createZoneDetector} from './zone-detectors.js?v=layers2';
+import {MODELS,createZoneDetector} from './zone-detectors.js?v=detector26';
 const $=id=>document.getElementById(id),video=$('video'),canvas=$('overlay'),ctx=canvas.getContext('2d');
 const inputCanvas=document.createElement('canvas'),inputCtx=inputCanvas.getContext('2d',{willReadFrequently:true});
 const pixelCanvas=document.createElement('canvas');pixelCanvas.width=96;pixelCanvas.height=54;
@@ -9,6 +9,15 @@ const bikeZones=new globalThis.BikeZones(MAX_CYCLISTS);
 const zoneCanvas=document.createElement('canvas'),zoneCtx=zoneCanvas.getContext('2d');
 let objectDetector=null,objectPromise=null,lastZoneScan=-Infinity,zoneScanCount=0,zoneFailure='',lastFound=[];
 const layer=id=>$(id).checked;
+function detectorOptions(){
+ const maximum=Number($('detectorMaxDet').value)||20;
+ if(!Number.isInteger(maximum)||maximum<1||maximum>300)throw Error('max_det debe estar entre 1 y 300.');
+ const text=$('detectorClasses').value||'0,1';
+ const ids=text.split(',').map(x=>Number(x.trim()));
+ if(!/^\s*\d+(\s*,\s*\d+)*\s*$/.test(text)||ids.some(x=>!Number.isInteger(x)||x<0||x>79))throw Error('Escribe IDs COCO de 0 a 79 separados por comas.');
+ return {maxDet:maximum,classIds:$('detectorAllClasses').checked?null:ids};
+}
+
 let rawBoxes=[];
 let zoneGeneration=0,zoneBusy=false,selectedModel='original',trainedBytes=null,trainedYoloBytes=null;
 async function initZones(){
@@ -17,7 +26,7 @@ async function initZones(){
  const generation=zoneGeneration,key=selectedModel;
  $('modelStatus').textContent='Cargando '+MODELS[key].name+'…';
  const pending=(async()=>{
-  const detector=await createZoneDetector(key,key==='yolo_trained'?trainedYoloBytes:trainedBytes,Number($('detectorConfidence').value)||.45);
+  const detector=await createZoneDetector(key,key==='yolo_trained'?trainedYoloBytes:trainedBytes,Number($('detectorConfidence').value)||.45,detectorOptions());
   if(generation!==zoneGeneration){await detector.close();return null;}
   objectDetector=detector;zoneFailure='';$('modelStatus').textContent='Activo: '+MODELS[key].name;return detector;
  })();objectPromise=pending;
@@ -37,7 +46,7 @@ async function scanZones(t,landmarks=[]){
    context.drawImage(snapshot,x*W,y*H,w*W,h*H,0,0,tile.width,tile.height);
    const result=await detector.detect(tile);if(generation!==zoneGeneration)return;
    for(const d of result.detections??[]){const c=d.categories?.[0],b=d.boundingBox;if(!c||!b)continue;
-    boxes.push({label:c.categoryName,score:c.score,x:x+b.originX/W,y:y+b.originY/H,w:b.width/W,h:b.height/H});
+    boxes.push({label:c.categoryName,score:c.score,x:x+b.originX/W,y:y+b.originY/H,w:b.width/W,h:b.height/H,keypoints:(d.keypoints??[]).map(p=>({x:x+p.x/W,y:y+p.y/H,score:p.score}))});
    }
   }
   rawBoxes=boxes;
@@ -48,7 +57,7 @@ async function scanZones(t,landmarks=[]){
 }
 function showZoneStatus(){
  if(!layer('layerDetector')){$('zoneStatus').textContent='Detector desactivado.';return;}
- if(!layer('layerZones')){$('zoneStatus').textContent=zoneFailure||('Detecciones directas: '+rawBoxes.filter(b=>b.label==='bicycle').length+' bicicletas · '+rawBoxes.filter(b=>b.label==='person').length+' personas. Sin confirmación de zonas.');return;}
+ if(!layer('layerZones')){$('zoneStatus').textContent=zoneFailure||('Detecciones directas: '+rawBoxes.length+' cajas · '+rawBoxes.filter(b=>b.label==='bicycle').length+' bicicletas · '+rawBoxes.filter(b=>b.label==='person').length+' personas. Sin confirmación de zonas.');return;}
  const zs=bikeZones.zones,bikes=zs.filter(z=>z.kind==='bicycle').length;
  $('zoneStatus').textContent=zoneFailure||(zoneScanCount>=6?(zs.length?`${zs.length} zonas fijadas: ${bikes} bicicletas reconocidas y ${zs.length-bikes} estimadas por personas. Si falta alguna, vuelve a detectar con otra imagen.`:'No se confirmaron zonas. Prueba otra vista y vuelve a detectar.'):`Buscando zonas (${zoneScanCount}/6 muestras). Reproduce unos segundos para confirmarlas.`);
 }
@@ -169,7 +178,7 @@ function render(found){
 function draw(found){
  canvas.width=video.videoWidth||1280;canvas.height=video.videoHeight||720;ctx.clearRect(0,0,canvas.width,canvas.height);
  if(!layer('layerZones')){
-  for(const b of rawBoxes){if(b.label!=='bicycle')continue;ctx.strokeStyle='#00c853';ctx.lineWidth=3;ctx.strokeRect(b.x*canvas.width,b.y*canvas.height,b.w*canvas.width,b.h*canvas.height);ctx.font='18px system-ui';ctx.fillStyle='#00c853';ctx.fillText('bicicleta '+(b.score*100).toFixed(1)+'%',b.x*canvas.width,Math.max(20,b.y*canvas.height-4));}
+  for(const b of rawBoxes){ctx.strokeStyle='#00c853';ctx.lineWidth=3;ctx.strokeRect(b.x*canvas.width,b.y*canvas.height,b.w*canvas.width,b.h*canvas.height);for(const p of b.keypoints??[]){if(p.score<.5)continue;ctx.beginPath();ctx.arc(p.x*canvas.width,p.y*canvas.height,3,0,2*Math.PI);ctx.fillStyle='#ff9100';ctx.fill();}ctx.font='18px system-ui';ctx.fillStyle='#00c853';ctx.fillText(b.label+' '+(b.score*100).toFixed(1)+'%',b.x*canvas.width,Math.max(20,b.y*canvas.height-4));}
  }
  if(layer('layerZones')&&$('showZones').checked){
   for(const z of bikeZones.zones){
@@ -301,7 +310,7 @@ $('compareRun').onclick=async()=>{
   const c=$('compareCanvas');c.width=bitmap.width;c.height=bitmap.height;
   const context=c.getContext('2d');context.drawImage(bitmap,0,0);
   const snapshot=document.createElement('canvas');snapshot.width=c.width;snapshot.height=c.height;snapshot.getContext('2d').drawImage(bitmap,0,0);
-  detector=await createZoneDetector(key,key==='yolo_trained'?trainedYoloBytes:trainedBytes,threshold);
+  detector=await createZoneDetector(key,key==='yolo_trained'?trainedYoloBytes:trainedBytes,threshold,detectorOptions());
   const started=performance.now(),result=await detector.detect(snapshot),elapsed=performance.now()-started;
   const labels=[];
   for(const d of result.detections??[]){
@@ -325,11 +334,11 @@ async function applyLayers(){
  while(zoneBusy)await new Promise(resolve=>setTimeout(resolve,20));
  const threshold=Number($('detectorConfidence').value);
  if(!Number.isFinite(threshold)||threshold<=0||threshold>1)throw Error('Confianza inválida: usa un valor entre 0,01 y 1.');
- if(objectDetector?.setThreshold){objectDetector.setThreshold(threshold);}else{const old=objectDetector;objectDetector=null;objectPromise=null;if(old)await old.close();}
+ if(objectDetector?.setThreshold){objectDetector.setThreshold(threshold);objectDetector.setOptions?.(detectorOptions());}else{const old=objectDetector;objectDetector=null;objectPromise=null;if(old)await old.close();}
  await Promise.all([initZones(),initPose()]);
  $('layerStatus').textContent=['layerDetector','layerCrops','layerZones','layerPose','layerCadence'].map(id=>id.replace('layer','')+': '+(layer(id)?'sí':'no')).join(' · ');
  if(source&&video.readyState>=2){processFrame(video.currentTime);while(zoneBusy)await new Promise(resolve=>setTimeout(resolve,20));}
 }
-for(const id of ['layerDetector','layerCrops','layerZones','layerPose','layerCadence','detectorConfidence'])$(id).onchange=()=>changeLayers().catch(error);
+for(const id of ['layerDetector','layerCrops','layerZones','layerPose','layerCadence','detectorConfidence','detectorClasses','detectorAllClasses','detectorMaxDet'])$(id).onchange=()=>changeLayers().catch(error);
 $('onlyBikes').onclick=()=>{for(const id of ['layerCrops','layerZones','layerPose','layerCadence'])$(id).checked=false;$('layerDetector').checked=true;$('detectorConfidence').value='.25';return changeLayers().catch(error);};
 $('allLayers').onclick=()=>{for(const id of ['layerDetector','layerCrops','layerZones','layerPose','layerCadence'])$(id).checked=true;$('detectorConfidence').value='.45';return changeLayers().catch(error);};

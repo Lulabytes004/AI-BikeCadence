@@ -25,3 +25,23 @@ test('custom two-class YOLO maps class zero to bicycle and merges overlapping bi
 });
 
 test('YOLOv8n uses its own pinned ONNX weights',async()=>{const {MODELS}=await modulePromise;assert.equal(MODELS.yolov8n.type,'onnx');assert.notEqual(MODELS.yolov8n.url,MODELS.yolo.url);assert.match(MODELS.yolov8n.url,/98100409491fa67f62a2e780a4efe485b86dfd0b/);});
+
+test('COCO filter supports motorcycles, all classes and configurable max_det',async()=>{
+ const {decodeYolo,COCO_NAMES}=await modulePromise;assert.equal(COCO_NAMES.length,80);assert.equal(COCO_NAMES[3],'motorcycle');
+ const N=3,data=new Float32Array(84*N);
+ for(let i=0;i<N;i++){data[i]=100+i*180;data[N+i]=200;data[2*N+i]=50;data[3*N+i]=50;data[(4+[0,3,16][i])*N+i]=.9-i*.1;}
+ const filtered=decodeYolo(data,[1,84,N],640,640,640,.25,null,{classIds:[3],maxDet:20});assert.equal(filtered.detections.length,1);assert.equal(filtered.detections[0].categories[0].categoryName,'motorcycle');
+ assert.equal(decodeYolo(data,[1,84,N],640,640,640,.25,null,{classIds:null,maxDet:2}).detections.length,2);
+});
+test('YOLO26 processed output uses xyxy and does not suppress overlapping end-to-end boxes',async()=>{
+ const {decodeYolo}=await modulePromise;const data=new Float32Array([100,100,200,200,.9,1,100,100,200,200,.8,1,300,100,400,200,.7,3]);
+ const result=decodeYolo(data,[1,3,6],640,640,640,.25,null,{classIds:[1,3],maxDet:20});assert.equal(result.detections.length,3);assert.equal(result.detections[0].boundingBox.width,100);
+});
+test('YOLO26 pose decodes person boxes and 17 points without treating points as categories',async()=>{
+ const {decodeYolo}=await modulePromise;const data=new Float32Array(57);data.set([100,100,200,300,.9,0]);for(let j=0;j<17;j++)data.set([150,200,.8],6+j*3);
+ const result=decodeYolo(data,[1,1,57],640,640,640,.25,['person'],{pose:true,classIds:null,maxDet:20});assert.equal(result.detections[0].categories[0].categoryName,'person');assert.equal(result.detections[0].keypoints.length,17);assert.equal(result.detections[0].keypoints[0].x,150);
+});
+test('actual YOLO26 split layout converts normalized xywh to source boxes',async()=>{
+ const {decodeSplitYolo}=await modulePromise;const logits={dims:[1,2,80],data:new Float32Array(160)},boxes={dims:[1,2,4],data:new Float32Array([.5,.5,.25,.25,.25,.5,.1,.1])};logits.data[1]=.9;logits.data[80+3]=.8;
+ const result=decodeSplitYolo(logits,boxes,1280,720,.25,{classIds:[1,3],maxDet:20});assert.equal(result.detections.length,2);assert.deepEqual(result.detections[0].boundingBox,{originX:480,originY:200,width:320,height:320});
+});
