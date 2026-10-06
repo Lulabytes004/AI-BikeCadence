@@ -1,4 +1,4 @@
-import {MODELS,createZoneDetector} from './zone-detectors.js?v=pose-zones1';
+import {MODELS,createZoneDetector} from './zone-detectors.js?v=lite-auto1';
 const $=id=>document.getElementById(id),video=$('video'),canvas=$('overlay'),ctx=canvas.getContext('2d');
 const inputCanvas=document.createElement('canvas'),inputCtx=inputCanvas.getContext('2d',{willReadFrequently:true});
 const pixelCanvas=document.createElement('canvas');pixelCanvas.width=96;pixelCanvas.height=54;
@@ -76,7 +76,7 @@ async function initPose(){
   setStatus('Cargando IA…');
   const mod=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32');
   PoseLandmarker=mod.PoseLandmarker;DrawingUtils=mod.DrawingUtils;
-  const {createPoseModel}=await import('./pose-models.js?v=pose-zones1');
+  const {createPoseModel}=await import('./pose-models.js?v=lite-auto1');
   $('poseStatus').textContent='Cargando '+selectedPoseModel+'…';
   pose=await createPoseModel(selectedPoseModel);
   $('poseStatus').textContent='Modelo de postura listo: '+$('poseModel').selectedOptions?.[0]?.textContent;
@@ -303,7 +303,7 @@ $('zoneModel').onchange=()=>{layerChange=layerChange.then(changeSelectedModel,ch
 
 $('trainedModelFile').onchange=async()=>{
  const file=$('trainedModelFile').files[0];if(!file)return;
- try{const isYolo=/\.onnx$/i.test(file.name);if(!isYolo&&!/\.tflite$/i.test(file.name))throw Error('Elige model.onnx o model.tflite, no el ZIP ni los pesos .pt.');const bytes=new Uint8Array(await file.arrayBuffer());if(isYolo)trainedYoloBytes=bytes;else trainedBytes=bytes;$('trainedModelName').textContent=file.name+' · cargado en este dispositivo';$('zoneModel').value=isYolo?'yolo_trained':selectedModel==='lite3'?'lite3':'trained';await $('zoneModel').onchange();}
+ try{const isYolo=/\.onnx$/i.test(file.name);if(!isYolo&&!/\.tflite$/i.test(file.name))throw Error('Elige model.onnx o model.tflite, no el ZIP ni los pesos .pt.');const bytes=new Uint8Array(await file.arrayBuffer());if(isYolo)trainedYoloBytes=bytes;else trainedBytes=bytes;$('trainedModelName').textContent=file.name+' · cargado en este dispositivo';$('zoneModel').value=isYolo?'yolo_trained':'trained';await $('zoneModel').onchange();}
  catch(e){$('modelStatus').textContent='No se pudo leer el modelo: '+e.message;}
  $('trainedModelFile').value='';
 };
@@ -380,13 +380,12 @@ function syncModelUI(){
  const timing=config.referenceMs?config.referenceMs.toLocaleString('es-ES')+' ms ≈ '+(1000/config.referenceMs).toFixed(1).replace('.',',')+' FPS · '+config.referenceDevice+' · '+config.inputSize+' × '+config.inputSize:'sin tiempo de referencia para este modelo entrenado';
  $('modelDetails').textContent=(selectedModel==='yolov8n'?'Archivo original .pt ≈ 6,2 MB · App ONNX: ':selectedModel==='yolov8m'?'Archivo original .pt ≈ 52 MB · App ONNX: ':'')+size+' · '+(config.format||'según archivo')+' · '+timing;
 
- const allowed=config.pose?['person']:config.local&&selectedModel!=='lite3'?['all','bicycle']:['all','person','bicycle','motorcycle'];
+ const allowed=config.pose?['person']:config.local?['all','bicycle']:['all','person','bicycle','motorcycle'];
  for(const option of select.options)option.disabled=!allowed.includes(option.value);
  if(!allowed.includes(select.value))select.value=config.pose?'person':'bicycle';
  $('localModelControls').hidden=!config.local;
- $('lite3Help').hidden=selectedModel!=='lite3';
- if(selectedModel==='lite3'&&!trainedBytes)$('trainedModelName').textContent='Descarga EfficientDet-Lite3 INT8 desde el enlace de abajo y carga su .tflite. No es un resultado de entrenamiento.';
- $('objectsHelp').textContent=config.pose?'Este modelo solo reconoce personas.':config.local&&selectedModel!=='lite3'?'Modelo entrenado: bicicleta y bicicleta de spinning. Todo conserva sus categorías propias.':'Todo muestra las 80 categorías COCO. Persona = 0, bicicleta = 1, moto = 3.';
+
+ $('objectsHelp').textContent=config.pose?'Este modelo solo reconoce personas.':config.local?'Modelo entrenado: bicicleta y bicicleta de spinning. Todo conserva sus categorías propias.':'Todo muestra las 80 categorías COCO. Persona = 0, bicicleta = 1, moto = 3.';
 }
 syncModelUI();
 
@@ -399,7 +398,8 @@ function setModelLoading(busy){
 }
 function showModelProgress(key,info){
  const name=MODELS[key].name,bar=$('modelProgress');
- if(info.stage==='download'){
+ if(info.stage==='cached'){$('modelStatus').textContent='MODELO GUARDADO · '+name+' · preparando…';}
+ else if(info.stage==='download'){
   const mb=(info.loaded/1048576).toFixed(1).replace('.',',');
   if(info.total){bar.max=info.total;bar.value=info.loaded;}
   else bar.removeAttribute?.('value');

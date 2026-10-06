@@ -66,4 +66,20 @@ test('streamed model download reports progress and rejects failed requests',asyn
  }finally{global.fetch=original;}
 });
 
-test('Lite3 missing-file message points to its official download',async()=>{const {createZoneDetector}=await modulePromise;await assert.rejects(createZoneDetector('lite3',null),/descarga oficial INT8/);});
+test('Lite3 and Lite4 use official automatic downloads rather than local files',async()=>{const {MODELS}=await modulePromise;for(const key of ['lite3','lite4']){assert.notEqual(MODELS[key].local,true);assert.equal(MODELS[key].cache,true);assert.match(MODELS[key].url,new RegExp('/'+key+'/detection/metadata/'));}});
+
+test('cached TFLite downloads reuse valid bytes and reject HTML without caching it',async()=>{
+ const {downloadCachedTflite}=await modulePromise;
+ const originalFetch=global.fetch,originalCaches=global.caches,stored=new Map();let downloads=0;
+ const bytes=new Uint8Array([32,0,0,0,84,70,76,51,1,2]);
+ global.caches={open:async()=>({match:async key=>stored.get(key)?.clone(),put:async(key,response)=>stored.set(key,response),delete:async key=>stored.delete(key)})};
+ global.fetch=async()=>{downloads++;return new Response(bytes);};
+ try{
+  const progress=[];assert.deepEqual(await downloadCachedTflite('https://model.test/lite3'),bytes);
+  assert.deepEqual(await downloadCachedTflite('https://model.test/lite3',p=>progress.push(p)),bytes);
+  assert.equal(downloads,1);assert.equal(progress[0].stage,'cached');
+  stored.set('https://model.test/lite4',new Response('broken'));await downloadCachedTflite('https://model.test/lite4');assert.equal(downloads,2);
+  global.fetch=async()=>new Response('<html>not a model</html>');
+  await assert.rejects(downloadCachedTflite('https://model.test/html'),/TFLite válido/);assert.equal(stored.has('https://model.test/html'),false);
+ }finally{global.fetch=originalFetch;if(originalCaches===undefined)delete global.caches;else global.caches=originalCaches;}
+});

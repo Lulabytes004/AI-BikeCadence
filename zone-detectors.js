@@ -6,9 +6,10 @@ export const MODELS={
  original:{name:'EfficientDet-Lite0 INT8',type:'mediapipe',url:'https://storage.googleapis.com/download.tensorflow.org/models/tflite/task_library/object_detection/android/lite-model_efficientdet_lite0_detection_metadata_1.tflite'},
  lite2:{name:'EfficientDet-Lite2 preentrenado',type:'mediapipe',url:'https://storage.googleapis.com/download.tensorflow.org/models/tflite/task_library/object_detection/android/lite-model_efficientdet_lite2_detection_metadata_1.tflite'},
  lite1:{name:'EfficientDet-Lite1 INT8',type:'mediapipe',url:'https://storage.googleapis.com/download.tensorflow.org/models/tflite/task_library/object_detection/android/lite-model_efficientdet_lite1_detection_metadata_1.tflite'},
- lite3:{name:'EfficientDet-Lite3 INT8 · archivo local',type:'mediapipe',local:true,url:'https://tfhub.dev/tensorflow/lite-model/efficientdet/lite3/detection/metadata/1?lite-format=tflite'},
+ lite3:{name:'EfficientDet-Lite3 INT8',type:'mediapipe',cache:true,url:'https://tfhub.dev/tensorflow/lite-model/efficientdet/lite3/detection/metadata/1?lite-format=tflite'},
  yolov8m:{name:'YOLOv8m preentrenado',type:'onnx',url:'https://huggingface.co/Kalray/yolov8/resolve/9e0af089be9c2f172e4fd9b724805f8b6514854e/yolov8m.onnx'},
  yolo26spose:{normalizedPose:true,name:'YOLO26s-pose',type:'onnx',pose:true,url:'https://huggingface.co/onnx-community/yolo26s-pose-ONNX/resolve/6eb02d4fba1accea4086fa1306fad418dcd62854/onnx/model.onnx'},
+ lite4:{name:'EfficientDet-Lite4 INT8',type:'mediapipe',cache:true,url:'https://tfhub.dev/tensorflow/lite-model/efficientdet/lite4/detection/metadata/2?lite-format=tflite'},
  trained:{name:'EfficientDet entrenado · archivo local',type:'mediapipe',local:true},
  yolov8n:{name:'YOLOv8n preentrenado',type:'onnx',url:'https://huggingface.co/salim4n/yolov8n-detect-onnx/resolve/98100409491fa67f62a2e780a4efe485b86dfd0b/yolov8n-onnx-web/yolov8n.onnx'},
  yolo_trained:{name:'YOLO11 entrenado · archivo local',type:'onnx',local:true,classes:['bicicleta','bicicleta_spinning']},
@@ -16,6 +17,7 @@ export const MODELS={
  yolo:{name:'YOLO11n preentrenado',type:'onnx',url:'https://huggingface.co/webnn/yolo11n/resolve/9c5acfdd74aaff2d0f47c51b878506361039a51f/onnx/yolo11n.onnx'}
 };
 const MODEL_INFO={"yolo26n": {"bytes": 9890454, "format": ".onnx", "referenceMs": 38.9, "inputSize": 640, "referenceDevice": "CPU de ordenador · ONNX"}, "yolo26s": {"bytes": 38239663, "format": ".onnx", "referenceMs": 87.2, "inputSize": 640, "referenceDevice": "CPU de ordenador · ONNX"}, "yolo26pose": {"bytes": 12081961, "format": ".onnx", "referenceMs": 40.3, "inputSize": 640, "referenceDevice": "CPU de ordenador · ONNX"}, "original": {"bytes": 4563519, "format": ".tflite INT8", "referenceMs": 37, "inputSize": 320, "referenceDevice": "Pixel 4 · CPU, 4 hilos"}, "lite2": {"bytes": 7557887, "format": ".tflite INT8", "referenceMs": 69, "inputSize": 448, "referenceDevice": "Pixel 4 · CPU, 4 hilos"}, "lite1": {"bytes": 6077535, "format": ".tflite INT8", "referenceMs": 49, "inputSize": 384, "referenceDevice": "Pixel 4 · CPU, 4 hilos"}, "lite3": {"bytes": 11953887, "format": ".tflite INT8", "referenceMs": 116, "inputSize": 512, "referenceDevice": "Pixel 4 · CPU, 4 hilos"}, "yolov8m": {"bytes": 103789086, "format": ".onnx", "referenceMs": 234.7, "inputSize": 640, "referenceDevice": "CPU de ordenador · ONNX"}, "yolo26spose": {"bytes": 41815454, "format": ".onnx", "referenceMs": 85.3, "inputSize": 640, "referenceDevice": "CPU de ordenador · ONNX"}, "trained": {"bytes": null, "format": ".tflite (según archivo)", "referenceMs": null, "inputSize": null, "referenceDevice": null}, "yolov8n": {"bytes": 12823637, "format": ".onnx", "referenceMs": 80.4, "inputSize": 640, "referenceDevice": "CPU de ordenador · ONNX"}, "yolo_trained": {"bytes": null, "format": ".onnx", "referenceMs": null, "inputSize": null, "referenceDevice": null}, "yolo_s": {"bytes": 38030388, "format": ".onnx", "referenceMs": 90, "inputSize": 640, "referenceDevice": "CPU de ordenador · ONNX"}, "yolo": {"bytes": 10720228, "format": ".onnx", "referenceMs": 56.1, "inputSize": 640, "referenceDevice": "CPU de ordenador · ONNX"}};
+MODEL_INFO.lite4={bytes:20849543,format:'.tflite INT8',referenceMs:260,inputSize:640,referenceDevice:'Pixel 4 · CPU, 4 hilos'};
 for(const [key,info] of Object.entries(MODEL_INFO))Object.assign(MODELS[key],info);
 export function labelName(name){return ['bicicleta','bicicleta_spinning','bicycle'].includes(name)?'bicycle':name;}
 export const COCO_NAMES='person,bicycle,car,motorcycle,airplane,bus,train,truck,boat,traffic light,fire hydrant,stop sign,parking meter,bench,bird,cat,dog,horse,sheep,cow,elephant,bear,zebra,giraffe,backpack,umbrella,handbag,tie,suitcase,frisbee,skis,snowboard,sports ball,kite,baseball bat,baseball glove,skateboard,surfboard,tennis racket,bottle,wine glass,cup,fork,knife,spoon,bowl,banana,apple,sandwich,orange,broccoli,carrot,hot dog,pizza,donut,cake,chair,couch,potted plant,bed,dining table,toilet,tv,laptop,mouse,remote,keyboard,cell phone,microwave,oven,toaster,sink,refrigerator,book,clock,vase,scissors,teddy bear,hair drier,toothbrush'.split(',');
@@ -73,13 +75,13 @@ export async function createZoneDetector(key,trainedBytes,threshold=.45,options=
  const config=MODELS[key];if(!config)throw Error('Modelo desconocido.');
  const progress=options.onProgress||(()=>{});progress({stage:'runtime'});
  if(config.type==='mediapipe'){
-  if(config.local&&!trainedBytes)throw Error(key==='lite3'?'Lite3 necesita su archivo .tflite. Pulsa «descarga oficial INT8» junto al selector y después «Cargar archivo del modelo». No necesitas un ZIP de entrenamiento.':'Extrae el ZIP del resultado y elige model.tflite en Cargar archivo del modelo.');
+  if(config.local&&!trainedBytes)throw Error('Extrae el ZIP del resultado y elige model.tflite en Cargar archivo del modelo.');
   const mod=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32');
   const vision=await mod.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm');
-  const bytes=config.local?trainedBytes:await downloadModel(config.url,progress);progress({stage:'prepare'});
+  const bytes=config.local?trainedBytes:await (config.cache?downloadCachedTflite(config.url,progress):downloadModel(config.url,progress));progress({stage:'prepare'});
   await new Promise(resolve=>setTimeout(resolve,0));
-  const detector=await mod.ObjectDetector.createFromOptions(vision,{baseOptions:{modelAssetBuffer:bytes,delegate:'CPU'},runningMode:'IMAGE',scoreThreshold:threshold,maxResults:options.maxDet??20,...((!config.local||key==='lite3')&&options.classIds&&{categoryAllowlist:options.classIds.map(id=>COCO_NAMES[id])})});
-  return {detect(input){const result=detector.detect(input);result.detections=result.detections.flatMap(d=>{const c=d.categories?.[0];if(!c)return [];const label=labelName(c.categoryName);const id=COCO_NAMES.indexOf(label);if((!config.local||key==='lite3')&&options.classIds!==null&&!(options.classIds??[0,1]).includes(id))return [];return [{...d,categories:[{...c,categoryName:label}]}];});return result;},close:()=>detector.close()};
+  const detector=await mod.ObjectDetector.createFromOptions(vision,{baseOptions:{modelAssetBuffer:bytes,delegate:'CPU'},runningMode:'IMAGE',scoreThreshold:threshold,maxResults:options.maxDet??20,...(!config.local&&options.classIds&&{categoryAllowlist:options.classIds.map(id=>COCO_NAMES[id])})});
+  return {detect(input){const result=detector.detect(input);result.detections=result.detections.flatMap(d=>{const c=d.categories?.[0];if(!c)return [];const label=labelName(c.categoryName);const id=COCO_NAMES.indexOf(label);if(!config.local&&options.classIds!==null&&!(options.classIds??[0,1]).includes(id))return [];return [{...d,categories:[{...c,categoryName:label}]}];});return result;},close:()=>detector.close()};
  }
  if(config.local&&!trainedBytes)throw Error('Extrae el ZIP y carga export/model.onnx para usar YOLO11 entrenado.');
  const ort=await runtime();ort.env.wasm.numThreads=1;ort.env.wasm.wasmPaths='https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/';
@@ -100,4 +102,25 @@ export function scaleNormalizedPose(data,dims,size=640){
   for(let k=6;k<57;k+=3){copy[j+k]*=size;copy[j+k+1]*=size;}
  }
  return copy;
+}
+
+const TFLITE_CACHE='bike-cadence-tflite-v1';
+function validTflite(bytes){return bytes.length>=8&&String.fromCharCode(...bytes.subarray(4,8))==='TFL3';}
+export async function downloadCachedTflite(url,onProgress=()=>{}){
+ let cache;
+ try{if(globalThis.caches)cache=await globalThis.caches.open(TFLITE_CACHE);}catch{}
+ if(cache){
+  try{
+   const response=await cache.match(url);
+   if(response){
+    const bytes=new Uint8Array(await response.arrayBuffer());
+    if(validTflite(bytes)){onProgress({stage:'cached',loaded:bytes.byteLength,total:bytes.byteLength});return bytes;}
+    await cache.delete(url);
+   }
+  }catch{}
+ }
+ const bytes=await downloadModel(url,onProgress);
+ if(!validTflite(bytes))throw Error('La descarga no contiene un modelo TFLite válido. Vuelve a seleccionar el modelo para reintentar.');
+ if(cache)try{await cache.put(url,new Response(bytes,{headers:{'Content-Type':'application/octet-stream'}}));}catch{}
+ return bytes;
 }

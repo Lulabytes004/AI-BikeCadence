@@ -1,4 +1,4 @@
-import {createZoneDetector} from './zone-detectors.js?v=pose-zones1';
+import {createZoneDetector} from './zone-detectors.js?v=lite-auto1';
 export const POSE_MODELS={
  mediapipe_lite:{name:'MediaPipe Pose Lite',variant:'lite'},
  mediapipe_full:{name:'MediaPipe Pose Full',variant:'full'},
