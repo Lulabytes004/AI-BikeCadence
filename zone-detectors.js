@@ -54,6 +54,16 @@ export function decodeSplitYolo(logits,boxes,width,height,threshold,options={}){
  }
  return decodeYolo(data,[1,N,6],width,height,640,threshold,null,options);
 }
+export async function downloadModel(url,onProgress=()=>{}){
+ onProgress({stage:'download',loaded:0,total:0});
+ const response=await fetch(url);if(!response.ok)throw Error('Descarga del modelo: HTTP '+response.status);
+ const total=Number(response.headers.get('content-length'))||0;
+ if(!response.body?.getReader){const bytes=new Uint8Array(await response.arrayBuffer());onProgress({stage:'download',loaded:bytes.byteLength,total:bytes.byteLength});return bytes;}
+ const reader=response.body.getReader(),chunks=[];let loaded=0;
+ for(;;){const {done,value}=await reader.read();if(done)break;chunks.push(value);loaded+=value.byteLength;onProgress({stage:'download',loaded,total});}
+ const bytes=new Uint8Array(loaded);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
+ return bytes;
+}
 let ortPromise;
 async function runtime(){
  if(!ortPromise)ortPromise=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.js';script.onload=()=>resolve(globalThis.ort);script.onerror=()=>reject(Error('No se pudo cargar ONNX Runtime.'));document.head.append(script);}).catch(e=>{ortPromise=null;throw e;});
@@ -61,16 +71,21 @@ async function runtime(){
 }
 export async function createZoneDetector(key,trainedBytes,threshold=.45,options={}){
  const config=MODELS[key];if(!config)throw Error('Modelo desconocido.');
+ const progress=options.onProgress||(()=>{});progress({stage:'runtime'});
  if(config.type==='mediapipe'){
   if(config.local&&!trainedBytes)throw Error('Extrae el ZIP del resultado y elige model.tflite en Cargar modelo entrenado.');
   const mod=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32');
   const vision=await mod.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm');
-  const detector=await mod.ObjectDetector.createFromOptions(vision,{baseOptions:{...(config.local?{modelAssetBuffer:trainedBytes}:{modelAssetPath:config.url}),delegate:'CPU'},runningMode:'IMAGE',scoreThreshold:threshold,maxResults:options.maxDet??20,...((!config.local||key==='lite3')&&options.classIds&&{categoryAllowlist:options.classIds.map(id=>COCO_NAMES[id])})});
+  const bytes=config.local?trainedBytes:await downloadModel(config.url,progress);progress({stage:'prepare'});
+  await new Promise(resolve=>setTimeout(resolve,0));
+  const detector=await mod.ObjectDetector.createFromOptions(vision,{baseOptions:{modelAssetBuffer:bytes,delegate:'CPU'},runningMode:'IMAGE',scoreThreshold:threshold,maxResults:options.maxDet??20,...((!config.local||key==='lite3')&&options.classIds&&{categoryAllowlist:options.classIds.map(id=>COCO_NAMES[id])})});
   return {detect(input){const result=detector.detect(input);result.detections=result.detections.flatMap(d=>{const c=d.categories?.[0];if(!c)return [];const label=labelName(c.categoryName);const id=COCO_NAMES.indexOf(label);if((!config.local||key==='lite3')&&options.classIds!==null&&!(options.classIds??[0,1]).includes(id))return [];return [{...d,categories:[{...c,categoryName:label}]}];});return result;},close:()=>detector.close()};
  }
  if(config.local&&!trainedBytes)throw Error('Extrae el ZIP y carga export/model.onnx para usar YOLO11 entrenado.');
  const ort=await runtime();ort.env.wasm.numThreads=1;ort.env.wasm.wasmPaths='https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/';
- const session=await ort.InferenceSession.create(config.local?trainedBytes:config.url,{executionProviders:['wasm']});
+ const bytes=config.local?trainedBytes:await downloadModel(config.url,progress);progress({stage:'prepare'});
+ await new Promise(resolve=>setTimeout(resolve,0));
+ const session=await ort.InferenceSession.create(bytes,{executionProviders:['wasm']});
  const metadata=session.inputMetadata?.[0],shape=metadata?.shape;
  if(shape&&(shape.length!==4||shape.slice(1).join(',')!=='3,640,640'||(typeof shape[0]==='number'&&shape[0]!==1))){await session.release();throw Error('YOLO: entrada incompatible con 640×640.');}
  const canvas=document.createElement('canvas');canvas.width=640;canvas.height=640;const ctx=canvas.getContext('2d',{willReadFrequently:true});

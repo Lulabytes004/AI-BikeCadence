@@ -109,3 +109,13 @@ formato y latencia de referencia. YOLO: ONNX 640×640, CPU de ordenador.
 EfficientDet: Pixel 4 CPU, 4 hilos, entradas Lite0 320, Lite1 384, Lite2 448,
 Lite3 512. No son mediciones del navegador ni incluyen capas adicionales.
 Los modelos personalizados muestran el tamaño del archivo cargado.
+
+CARGA DE MODELOS
+Seleccionar un modelo activa el Detector e inicia su carga directamente.
+El aviso junto al selector muestra motor, descarga con bytes y preparación.
+«LISTO» significa sesión inicializada, no garantiza detecciones correctas.
+La reproducción y ajustes permanecen bloqueados durante la carga.
+El cambio pausa el vídeo: al ver LISTO, pulsa Reproducir.
+Los errores de descarga e inferencia se muestran junto al selector.
+YOLOv8n y m muestran referencias .pt 6,2 y 52 MB, separadas de los tamaños
+ONNX reales utilizados por el navegador.

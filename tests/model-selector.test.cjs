@@ -55,3 +55,13 @@ test('model information describes served ONNX sizes and device-specific referenc
  assert.equal(MODELS.original.inputSize,320);assert.match(MODELS.original.referenceDevice,/Pixel 4/);
  assert.equal(MODELS.yolo_trained.bytes,null);assert.equal(MODELS.trained.referenceMs,null);
 });
+
+test('streamed model download reports progress and rejects failed requests',async()=>{
+ const {downloadModel}=await modulePromise,original=global.fetch;
+ try{
+  let i=0;global.fetch=async()=>({ok:true,headers:{get:()=> '3'},body:{getReader:()=>({read:async()=>i++===0?{done:false,value:new Uint8Array([1,2])}:i===2?{done:false,value:new Uint8Array([3])}:{done:true}})}});
+  const progress=[],bytes=await downloadModel('mock',info=>progress.push(info));
+  assert.deepEqual([...bytes],[1,2,3]);assert.equal(progress.at(-1).loaded,3);assert.equal(progress.at(-1).total,3);
+  global.fetch=async()=>({ok:false,status:404});await assert.rejects(downloadModel('mock'),/HTTP 404/);
+ }finally{global.fetch=original;}
+});

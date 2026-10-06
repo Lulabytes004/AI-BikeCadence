@@ -1,4 +1,4 @@
-import {MODELS,createZoneDetector} from './zone-detectors.js?v=model-info3';
+import {MODELS,createZoneDetector} from './zone-detectors.js?v=model-load4';
 const $=id=>document.getElementById(id),video=$('video'),canvas=$('overlay'),ctx=canvas.getContext('2d');
 const inputCanvas=document.createElement('canvas'),inputCtx=inputCanvas.getContext('2d',{willReadFrequently:true});
 const pixelCanvas=document.createElement('canvas');pixelCanvas.width=96;pixelCanvas.height=54;
@@ -20,15 +20,15 @@ let rawBoxes=[];
 let zoneGeneration=0,zoneBusy=false,selectedModel='original',trainedBytes=null,trainedYoloBytes=null;
 async function initZones(){
  if(!layer('layerDetector'))return null;
- if(objectDetector)return objectDetector;if(objectPromise)return objectPromise;
+ if(objectDetector)return objectDetector;if(objectPromise){await objectPromise;return objectDetector||initZones();}
  const generation=zoneGeneration,key=selectedModel;
- $('modelStatus').textContent='Cargando '+MODELS[key].name+'…';
+ setModelLoading(true);$('modelStatus').textContent='Cargando '+MODELS[key].name+'…';
  const pending=(async()=>{
-  const detector=await createZoneDetector(key,key==='yolo_trained'?trainedYoloBytes:trainedBytes,Number($('detectorConfidence').value)||.45,detectorOptions());
+  const detector=await createZoneDetector(key,key==='yolo_trained'?trainedYoloBytes:trainedBytes,Number($('detectorConfidence').value)||.45,{...detectorOptions(),onProgress:info=>{if(generation===zoneGeneration)showModelProgress(key,info);}});
   if(generation!==zoneGeneration){await detector.close();return null;}
-  objectDetector=detector;zoneFailure='';$('modelStatus').textContent='Activo: '+MODELS[key].name;return detector;
+  objectDetector=detector;zoneFailure='';$('modelStatus').textContent='✓ LISTO: '+MODELS[key].name+' · pulsa Reproducir para analizar el vídeo';return detector;
  })();objectPromise=pending;
- try{return await pending;}catch(e){if(generation===zoneGeneration){zoneFailure='No se pudo cargar '+MODELS[key].name+': '+(e.message||String(e));$('modelStatus').textContent=zoneFailure;}return null;}finally{if(objectPromise===pending)objectPromise=null;}
+ try{return await pending;}catch(e){if(generation===zoneGeneration){zoneFailure='No se pudo cargar '+MODELS[key].name+': '+(e.message||String(e));$('modelStatus').textContent=zoneFailure;}return null;}finally{if(objectPromise===pending)objectPromise=null;if(generation===zoneGeneration)setModelLoading(false);}
 }
 function resetZones(){zoneGeneration++;bikeZones.reset();rawBoxes=[];lastZoneScan=-Infinity;zoneScanCount=0;}
 async function scanZones(t,landmarks=[]){
@@ -50,7 +50,7 @@ async function scanZones(t,landmarks=[]){
   rawBoxes=boxes;
   if(layer('layerZones'))bikeZones.update([...boxes,...globalThis.poseZoneBoxes(landmarks)],t);zoneScanCount++;
   if(layer('layerZones')&&zoneScanCount>=6)bikeZones.lock();
- }catch(e){if(generation===zoneGeneration){zoneFailure='Error al detectar zonas: '+(e.message||String(e));zoneScanCount=6;}}
+ }catch(e){if(generation===zoneGeneration){zoneFailure='Error al detectar zonas: '+(e.message||String(e));$('modelStatus').textContent='ERROR DE DETECCIÓN: '+zoneFailure;zoneScanCount=6;}}
  finally{zoneBusy=false;showZoneStatus();draw(lastFound);}
 }
 function showZoneStatus(){
@@ -154,7 +154,7 @@ function processFrame(mediaTime){
  // MediaPipe needs strictly increasing inference timestamps even after a seek/replay.
  lastModelTimestamp+=mediaDelta;
  const result=layer('layerPose')&&pose?pose.detectForVideo(inputCanvas,lastModelTimestamp):{landmarks:[]};
- try{scanZones(t,result.landmarks??[]);}catch(e){zoneFailure='Error al detectar zonas: '+(e.message||String(e));zoneScanCount=6;}
+ try{scanZones(t,result.landmarks??[]);}catch(e){zoneFailure='Error al detectar zonas: '+(e.message||String(e));$('modelStatus').textContent='ERROR DE DETECCIÓN: '+zoneFailure;zoneScanCount=6;}
  showZoneStatus();
  const found=layer('layerCadence')&&layer('layerPose')?tracks.update(result.landmarks??[],t,video.videoWidth/video.videoHeight,still):(result.landmarks??[]).map((lm,i)=>({id:i+1,lm,x:lm[23]?.x??0,result:{rpm:null,state:'waiting',quality:0,cycles:0}}));
  lastFound=found;render(found);draw(found);updateTime();record(t,found,result.landmarks??[],still);
@@ -275,19 +275,20 @@ $('scanZones').onclick=async()=>{
  }
 };
 
-$('zoneModel').onchange=async()=>{
- $('zoneModel').disabled=true;
+async function changeSelectedModel(){
+ $('zoneModel').disabled=true;setModelLoading(true);$('modelStatus').textContent='Cambiando de modelo…';
  try{
  video.pause();cancelLoop();$('play').textContent='Reproducir';
- selectedModel=$('zoneModel').value;syncModelUI();resetZones();zoneFailure='';
+ $('layerDetector').checked=true;selectedModel=$('zoneModel').value;syncModelUI();resetZones();zoneFailure='';
  // Allow an in-flight inference to finish before closing its runtime.
  while(zoneBusy)await new Promise(resolve=>setTimeout(resolve,20));
  const old=objectDetector;objectDetector=null;objectPromise=null;if(old)await old.close();
  clearData();await initZones();showZoneStatus();
  if(source&&video.readyState>=2){sourcePixels();await scanZones(video.currentTime*1000);}
  }catch(e){zoneFailure=e.message||String(e);showZoneStatus();}
- finally{$('zoneModel').disabled=false;}
-};
+ finally{$('zoneModel').disabled=false;setModelLoading(false);if(!layer('layerDetector'))$('modelStatus').textContent='Detector desactivado: activa la capa Detector para cargar el modelo.';}
+}
+$('zoneModel').onchange=()=>{layerChange=layerChange.then(changeSelectedModel,changeSelectedModel);return layerChange;};
 
 $('trainedModelFile').onchange=async()=>{
  const file=$('trainedModelFile').files[0];if(!file)return;
@@ -347,7 +348,7 @@ function syncModelUI(){
  const bytes=config.local&&localBytes?localBytes.byteLength:config.bytes;
  const size=bytes?(bytes/1048576).toFixed(1).replace('.',',')+' MiB':'tamaño disponible al cargar el archivo';
  const timing=config.referenceMs?config.referenceMs.toLocaleString('es-ES')+' ms ≈ '+(1000/config.referenceMs).toFixed(1).replace('.',',')+' FPS · '+config.referenceDevice+' · '+config.inputSize+' × '+config.inputSize:'sin tiempo de referencia para este modelo entrenado';
- $('modelDetails').textContent=size+' · '+(config.format||'según archivo')+' · '+timing;
+ $('modelDetails').textContent=(selectedModel==='yolov8n'?'Archivo original .pt ≈ 6,2 MB · App ONNX: ':selectedModel==='yolov8m'?'Archivo original .pt ≈ 52 MB · App ONNX: ':'')+size+' · '+(config.format||'según archivo')+' · '+timing;
 
  const allowed=config.pose?['person']:config.local&&selectedModel!=='lite3'?['all','bicycle']:['all','person','bicycle','motorcycle'];
  for(const option of select.options)option.disabled=!allowed.includes(option.value);
@@ -357,3 +358,23 @@ function syncModelUI(){
  $('objectsHelp').textContent=config.pose?'Este modelo solo reconoce personas.':config.local&&selectedModel!=='lite3'?'Modelo entrenado: bicicleta y bicicleta de spinning. Todo conserva sus categorías propias.':'Todo muestra las 80 categorías COCO. Persona = 0, bicicleta = 1, moto = 3.';
 }
 syncModelUI();
+
+function setModelLoading(busy){
+ $('modelProgress').hidden=!busy;
+ for(const id of ['zoneModel','layerDetector','layerCrops','layerZones','layerPose','layerCadence','detectorObjects','detectorConfidence','detectorMaxDet','onlyBikes','allLayers','trainedModelFile'])$(id).disabled=busy;
+ if(!busy)$('layerCadence').disabled=!layer('layerPose');
+ $('modelLoadPanel').style.borderColor=busy?'#fbbf24':'#64748b';
+ for(const id of ['play','step','scanZones'])$(id).disabled=busy||!source||(id!=='scanZones'&&source!=='file');
+}
+function showModelProgress(key,info){
+ const name=MODELS[key].name,bar=$('modelProgress');
+ if(info.stage==='download'){
+  const mb=(info.loaded/1048576).toFixed(1).replace('.',',');
+  if(info.total){bar.max=info.total;bar.value=info.loaded;}
+  else bar.removeAttribute?.('value');
+  $('modelStatus').textContent='DESCARGANDO '+name+' · '+mb+' MiB'+(info.total?' / '+(info.total/1048576).toFixed(1).replace('.',',')+' MiB':'')+' · espera…';
+ }else{
+  bar.removeAttribute?.('value');
+  $('modelStatus').textContent=(info.stage==='prepare'?'PREPARANDO ':'CARGANDO MOTOR DE IA · ')+name+' · espera…';
+ }
+}

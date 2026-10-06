@@ -42,7 +42,7 @@ test('paused file scan waits for six slow samples, restores position and keeps c
  for(const name of ['cadence.js','bike-zones.js','measure.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'..',name),'utf8').replace(/^import .*zone-detectors.*;\n/,''),sandbox);
  sandbox.cadenceDebug.setModel({detectForVideo:()=>({landmarks:[]})});
  const times=[];let busy=false;
- sandbox.cadenceDebug.setZoneModel({async detect(){assert.equal(busy,false,'inferences must not overlap');busy=true;times.push(video.currentTime);await new Promise(r=>setImmediate(r));busy=false;return {detections:[{categories:[{categoryName:'bicycle',score:.9}],boundingBox:{originX:200,originY:300,width:200,height:180}}]};}});
+ sandbox.cadenceDebug.setZoneModel({close(){},async detect(){assert.equal(busy,false,'inferences must not overlap');busy=true;times.push(video.currentTime);await new Promise(r=>setImmediate(r));busy=false;return {detections:[{categories:[{categoryName:'bicycle',score:.9}],boundingBox:{originX:200,originY:300,width:200,height:180}}]};}});
  await sandbox.cadenceDebug.openFile({name:'example.mp4'});
  // Let the initial preview's five crops finish before starting the explicit scan.
  for(let i=0;i<8;i++)await new Promise(r=>setImmediate(r));
@@ -52,4 +52,22 @@ test('paused file scan waits for six slow samples, restores position and keeps c
  assert.equal(video.currentTime,4);assert.equal(video.paused,true);
  assert.equal(sandbox.cadenceDebug.poseRecords.length,0);assert.equal(sandbox.cadenceDebug.records.length,0);
  assert.equal(sandbox.cadenceDebug.zones.locked,true);assert.equal(get('scanZones').disabled,false);
+ // Selecting a detector starts loading even when Detector was off; no preset click needed.
+ sandbox.MODELS.yolo={name:'YOLO11n'};
+ let finish,loads=0;
+ sandbox.createZoneDetector=async(key,bytes,threshold,options)=>{
+  loads++;assert.equal(key,'yolo');options.onProgress({stage:'download',loaded:5,total:10});
+  await new Promise(resolve=>{finish=resolve;});
+  options.onProgress({stage:'prepare'});return {detect:()=>({detections:[]}),close(){}};
+ };
+ for(const id of ['layerDetector','layerCrops','layerZones','layerPose','layerCadence'])get(id).checked=false;
+ get('zoneModel').value='yolo';const changing=get('zoneModel').onchange();
+ for(let i=0;i<3;i++)await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(loads,1);assert.equal(get('layerDetector').checked,true);
+ assert.match(get('modelStatus').textContent,/DESCARGANDO/);assert.equal(get('play').disabled,true);
+ assert.equal(get('modelProgress').hidden,false);
+ finish();await changing;
+ assert.match(get('modelStatus').textContent,/LISTO.*YOLO11n/);
+ assert.equal(get('modelProgress').hidden,true);assert.equal(get('play').disabled,false);
+
 });
