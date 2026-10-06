@@ -8,7 +8,7 @@ test('every UI option has a configured detector and advanced models use distinct
  const selector=html.match(/id="zoneModel"[^>]*>([\s\S]*?)<\/select>/)[1];
  const keys=[...selector.matchAll(/value="([^"]+)"/g)].map(x=>x[1]);
  assert.deepEqual(keys.sort(),Object.keys(MODELS).sort());
- assert.equal(new Set(['yolo','yolo_s','yolo_m'].map(k=>MODELS[k].url)).size,3);
+ assert.equal(new Set(['yolo','yolo_s','yolov8m'].map(k=>MODELS[k].url)).size,3);
  assert.match(MODELS.lite2.url,/efficientdet_lite2/);assert.equal(MODELS.trained.local,true);
 });
 
@@ -45,3 +45,5 @@ test('actual YOLO26 split layout converts normalized xywh to source boxes',async
  const {decodeSplitYolo}=await modulePromise;const logits={dims:[1,2,80],data:new Float32Array(160)},boxes={dims:[1,2,4],data:new Float32Array([.5,.5,.25,.25,.25,.5,.1,.1])};logits.data[1]=.9;logits.data[80+3]=.8;
  const result=decodeSplitYolo(logits,boxes,1280,720,.25,{classIds:[1,3],maxDet:20});assert.equal(result.detections.length,2);assert.deepEqual(result.detections[0].boundingBox,{originX:480,originY:200,width:320,height:320});
 });
+
+test('optional layers start off and objects have readable names',()=>{const html=fs.readFileSync(require('node:path').join(__dirname,'../measure.html'),'utf8');for(const id of ['layerCrops','layerZones','layerPose','layerCadence'])assert.doesNotMatch(html.match(new RegExp('<input id="'+id+'"[^>]*>'))[0],/checked/);assert.match(html,/id="detectorObjects"/);assert.doesNotMatch(html,/id="detectorClasses"/);});

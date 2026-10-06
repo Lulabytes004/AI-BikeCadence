@@ -90,3 +90,16 @@ Modelos ampliados y análisis de vídeos lentos
   y los metadatos Ultralytics AGPL-3.0. No se incluyen vídeos ni pesos privados.
 - Prueba reproducible por CLI: tests/benchmark-zone-videos.py. Ver
   tests/ADVANCED_MODEL_VALIDATION.md para resultados y limitaciones.
+
+INTERFAZ DE COMPARACIÓN DE MODELOS
+1. Modelo: EfficientDet-Lite0/1/2/3 INT8, EfficientDet local, YOLOv8n/m,
+   YOLO11n/s o local, YOLO26n/s y YOLO26n/s-pose.
+2. Objetos: Todo (80 categorías COCO), Persona, Bicicleta o Moto.
+   Pose solo admite Persona. Los modelos entrenados de bicicletas admiten
+   Todo o Bicicleta; mantienen las categorías del archivo personalizado.
+   Confianza inicial 0,25; máximo de detecciones inicial 20, configurable.
+3. Capas: únicamente Detector comienza activo. Recortes, Confirmar zonas,
+   Posturas y Cadencia se activan por separado. Cadencia requiere Posturas.
+   «Solo detector» apaga las capas adicionales y conserva el objeto elegido.
+Los tamaños EfficientDet son aproximados y corresponden al archivo INT8.
+Lite3 se descarga desde el enlace oficial y se carga como archivo .tflite.

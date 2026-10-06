@@ -4,6 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Bike Cadence Vision · Vídeo local</title>
 <style>
+[hidden]{display:none!important}
 *{box-sizing:border-box}body{margin:0;background:#0a0c10;color:#fff;font-family:system-ui,sans-serif}.app{max-width:1000px;margin:auto;padding:16px}a{color:#cbd0d8}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:14px 0}.title{font-weight:700;font-size:21px}.status{font-size:12px;padding:7px 10px;border-radius:99px;background:#252932}.view{position:relative;overflow:hidden;border-radius:16px;background:#171a20;aspect-ratio:16/9}video,canvas{position:absolute;width:100%;height:100%;object-fit:contain}canvas{pointer-events:none}.controls{display:flex;flex-wrap:wrap;gap:9px;margin:12px 0}button,.file-label{border:0;border-radius:11px;padding:12px 16px;font-size:15px;font-weight:650;background:#252932;color:#fff;cursor:pointer}button.primary,.file-label{background:#fff;color:#111}button:disabled{opacity:.45;cursor:default}input[type=file]{display:none}.panel{background:#171a20;border:1px solid #2b303a;border-radius:14px;padding:13px;margin:12px 0}.timeline{display:flex;align-items:center;gap:12px}.timeline input{flex:1;min-width:0}.timeline span{font-variant-numeric:tabular-nums;font-size:13px}select,input[type=number]{color:white;background:#252932;border:1px solid #414651;border-radius:6px;padding:7px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}.card{background:#171a20;border:1px solid #2b303a;border-left:4px solid var(--color);border-radius:12px;padding:14px}.rpm{font-size:42px;font-weight:750}.rpm small{font-size:16px;color:#b8c0ce}.detail{font-size:12px;color:#b8c0ce;line-height:1.7}.help{font-size:13px;color:#aeb5c1;line-height:1.5}#diag{white-space:pre-wrap;font-size:12px;max-height:150px;overflow:auto}.err{color:#ffb3b3}.ok{color:#b9f6ca}summary{cursor:pointer;font-size:14px}.settings{display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-size:13px}#fileName{overflow-wrap:anywhere}#sourceLabel{font-size:13px;color:#aeb5c1}label{cursor:pointer}.hidden{display:none}@media(max-width:600px){.title{font-size:17px}.app{padding:10px}.controls button,.file-label{padding:11px;font-size:13px}.timeline{flex-wrap:wrap}}
 </style>
 </head>
@@ -23,21 +24,23 @@
 <p class="help">La cadencia utiliza el tiempo del archivo: cambiar la velocidad de reproducción no cambia las RPM. Pausar conserva la última medición; buscar otra posición reinicia el historial.</p>
 </div>
 <div class="panel">
-<div class="settings"><label>Detector de bicicletas <select id="zoneModel"><option value="original">EfficientDet original</option><option value="lite2">EfficientDet-Lite2 preentrenado</option><option value="trained">EfficientDet entrenado · archivo local</option><option value="yolo_trained">YOLO11 entrenado · archivo local</option><option value="yolov8n">YOLOv8n preentrenado</option><option value="yolo26n">YOLO26n preentrenado</option><option value="yolo26s">YOLO26s preentrenado</option><option value="yolo26m">YOLO26m preentrenado</option><option value="yolo26pose">YOLO26n-pose · personas</option><option value="yolo">YOLO11n preentrenado</option><option value="yolo_s">YOLO11s preentrenado</option><option value="yolo_m">YOLO11m preentrenado</option></select></label></div>
-<div class="controls"><label class="file-label" for="trainedModelFile">Cargar modelo entrenado</label><input id="trainedModelFile" type="file" accept=".tflite,.onnx"><span id="trainedModelName" class="help">Extrae tu ZIP del resultado y elige model.tflite o export/model.onnx. No se sube a ningún servidor.</span></div>
-<div class="settings"><button id="onlyBikes">Solo bicicletas</button><button id="allLayers">Todas las capas</button>
+<h3>1. Modelo</h3><div class="settings"><label>Modelo <select id="zoneModel"><optgroup label="EfficientDet"><option value="original">EfficientDet-Lite0 · INT8 · 4,4 MB</option><option value="lite1">EfficientDet-Lite1 · INT8 · 5,8 MB</option><option value="lite2">EfficientDet-Lite2 · INT8 · 7,2 MB</option><option value="lite3">EfficientDet-Lite3 · INT8 · 11,4 MB · archivo local</option><option value="trained">EfficientDet entrenado · archivo local</option></optgroup><optgroup label="YOLOv8"><option value="yolov8n">YOLOv8n</option><option value="yolov8m">YOLOv8m</option></optgroup><optgroup label="YOLO11"><option value="yolo">YOLO11n</option><option value="yolo_s">YOLO11s</option><option value="yolo_trained">YOLO11 entrenado · archivo local</option></optgroup><optgroup label="YOLO26"><option value="yolo26n">YOLO26n</option><option value="yolo26s">YOLO26s</option><option value="yolo26pose">YOLO26n-pose · personas</option><option value="yolo26spose">YOLO26s-pose · personas</option></optgroup></select></label></div>
+<div class="controls" id="localModelControls" hidden><label class="file-label" for="trainedModelFile">Cargar archivo del modelo</label><input id="trainedModelFile" type="file" accept=".tflite,.onnx"><span id="trainedModelName" class="help">Extrae tu ZIP y elige .tflite o .onnx. El archivo se procesa en tu dispositivo.</span></div>
+<p id="lite3Help" class="help" hidden>Lite3: <a href="https://tfhub.dev/tensorflow/lite-model/efficientdet/lite3/detection/metadata/1?lite-format=tflite" target="_blank" rel="noopener">descarga oficial INT8</a> y selecciona el archivo .tflite arriba.</p>
+<h3>2. Objetos del modelo</h3><div class="settings">
+<label>Objetos <select id="detectorObjects"><option value="all">Todo (sin filtro)</option><option value="person">Persona</option><option value="bicycle" selected>Bicicleta</option><option value="motorcycle">Moto (motorcycle)</option></select></label>
+<label>Confianza <input id="detectorConfidence" type="number" min="0.01" max="1" step="0.01" value="0.25"></label>
+<label>Máximo de detecciones <input id="detectorMaxDet" type="number" min="1" max="300" value="20" style="width:75px"></label>
+</div><p id="objectsHelp" class="help">Todo muestra las 80 categorías COCO. Las opciones se adaptan al modelo.</p>
+<h3>3. Capas adicionales</h3><div class="settings"><button id="onlyBikes">Solo detector</button><button id="allLayers">Activar todas las capas</button>
 <label><input id="layerDetector" type="checkbox" checked> Detector</label>
-<label><input id="layerCrops" type="checkbox" checked> Recortes</label>
-<label><input id="layerZones" type="checkbox" checked> Confirmar zonas</label>
-<label><input id="layerPose" type="checkbox" checked> Posturas</label>
-<label><input id="layerCadence" type="checkbox" checked> Cadencia</label>
-<label>Confianza del detector <input id="detectorConfidence" type="number" min="0.01" max="1" step="0.01" value="0.45"></label>
-<label>Clases COCO (IDs) <input id="detectorClasses" type="text" value="0,1,3" style="width:120px"></label>
-<label><input id="detectorAllClasses" type="checkbox"> Todas las clases (sin filtro)</label>
-<label>max_det <input id="detectorMaxDet" type="number" min="1" max="300" value="20" style="width:75px"></label>
-</div><p class="help">0 = persona, 1 = bicicleta, 3 = moto. Puedes escribir otros IDs COCO (0–79) o mostrar todas las clases. YOLO26n-pose solo incluye personas; sus puntos no calculan RPM. Modelo personalizado: conserva sus categorías propias. Resolución: 640 × 640.</p><p id="layerStatus" class="help">Todas las capas activadas.</p>
-<div id="modelStatus" class="help" role="status">Seleccionado: EfficientDet original</div>
-<p class="help">Cambia de modelo y reproduce el mismo vídeo desde el inicio para comparar. El cambio pausa el vídeo y reinicia la medición. El vídeo se procesa en tu dispositivo. Para modelos lentos, pulsa «Analizar zonas / repetir»: examina seis instantes con el vídeo pausado y reinicia la medición. YOLO11m requiere más memoria y tiempo.</p>
+<label><input id="layerCrops" type="checkbox"> Recortes</label>
+<label><input id="layerZones" type="checkbox"> Confirmar zonas</label>
+<label><input id="layerPose" type="checkbox"> Posturas</label>
+<label><input id="layerCadence" type="checkbox" disabled> Cadencia</label>
+</div><p class="help">Empieza comparando solo el detector. Activa las demás capas una a una. Cadencia necesita Posturas. Los modelos pose solo detectan personas; sus puntos no calculan RPM por sí solos.</p><p id="layerStatus" class="help">Solo detector activo.</p>
+<div id="modelStatus" class="help" role="status">Seleccionado: EfficientDet-Lite0 INT8</div>
+<p class="help">Cambia de modelo y reproduce el mismo vídeo desde el inicio para comparar. El cambio pausa el vídeo y reinicia la medición. El vídeo se procesa en tu dispositivo. Para modelos lentos, pulsa «Analizar zonas / repetir»: examina seis instantes con el vídeo pausado y reinicia la medición.</p>
 <div class="controls"><button id="scanZones" disabled>Analizar zonas / repetir</button><label><input id="showZones" type="checkbox" checked> Mostrar zonas</label></div>
 <div id="zoneStatus" class="help" role="status">Las zonas se detectan automáticamente al reproducir el vídeo.</div>
 <p class="help">Zonas Z1–Z8: línea continua = bicicleta reconocida; discontinua = zona estimada por una persona, sin bicicleta confirmada. Mantén la cámara fija. Esta primera capa delimita las zonas; la medición de postura todavía analiza la imagen completa.</p>
@@ -58,5 +61,5 @@
 </details>
 <p class="help">El detector compara rodillas y tobillos y exige movimiento periódico antes de mostrar RPM. Una persona que no se reconoce se muestra sin medición. Los dibujos esquemáticos pueden no ser reconocidos por el modelo de personas.</p>
 </main>
-<script src="./cadence.js"></script><script src="./bike-zones.js"></script><script src="./measure.js?v=detector26" type="module"></script>
+<script src="./cadence.js"></script><script src="./bike-zones.js"></script><script src="./measure.js?v=model-ui2" type="module"></script>
 </body></html>

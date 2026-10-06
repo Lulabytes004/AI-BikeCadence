@@ -1,4 +1,4 @@
-import {MODELS,createZoneDetector} from './zone-detectors.js?v=detector26';
+import {MODELS,createZoneDetector} from './zone-detectors.js?v=model-ui2';
 const $=id=>document.getElementById(id),video=$('video'),canvas=$('overlay'),ctx=canvas.getContext('2d');
 const inputCanvas=document.createElement('canvas'),inputCtx=inputCanvas.getContext('2d',{willReadFrequently:true});
 const pixelCanvas=document.createElement('canvas');pixelCanvas.width=96;pixelCanvas.height=54;
@@ -12,10 +12,8 @@ const layer=id=>$(id).checked;
 function detectorOptions(){
  const maximum=Number($('detectorMaxDet').value)||20;
  if(!Number.isInteger(maximum)||maximum<1||maximum>300)throw Error('max_det debe estar entre 1 y 300.');
- const text=$('detectorClasses').value||'0,1';
- const ids=text.split(',').map(x=>Number(x.trim()));
- if(!/^\s*\d+(\s*,\s*\d+)*\s*$/.test(text)||ids.some(x=>!Number.isInteger(x)||x<0||x>79))throw Error('Escribe IDs COCO de 0 a 79 separados por comas.');
- return {maxDet:maximum,classIds:$('detectorAllClasses').checked?null:ids};
+ const value=$('detectorObjects').value||'bicycle';
+ return {maxDet:maximum,classIds:value==='all'?null:[{person:0,bicycle:1,motorcycle:3}[value]]};
 }
 
 let rawBoxes=[];
@@ -281,7 +279,7 @@ $('zoneModel').onchange=async()=>{
  $('zoneModel').disabled=true;
  try{
  video.pause();cancelLoop();$('play').textContent='Reproducir';
- selectedModel=$('zoneModel').value;resetZones();zoneFailure='';
+ selectedModel=$('zoneModel').value;syncModelUI();resetZones();zoneFailure='';
  // Allow an in-flight inference to finish before closing its runtime.
  while(zoneBusy)await new Promise(resolve=>setTimeout(resolve,20));
  const old=objectDetector;objectDetector=null;objectPromise=null;if(old)await old.close();
@@ -293,7 +291,7 @@ $('zoneModel').onchange=async()=>{
 
 $('trainedModelFile').onchange=async()=>{
  const file=$('trainedModelFile').files[0];if(!file)return;
- try{const isYolo=/\.onnx$/i.test(file.name);if(!isYolo&&!/\.tflite$/i.test(file.name))throw Error('Elige model.onnx o model.tflite, no el ZIP ni los pesos .pt.');const bytes=new Uint8Array(await file.arrayBuffer());if(isYolo)trainedYoloBytes=bytes;else trainedBytes=bytes;$('trainedModelName').textContent=file.name+' · cargado en este dispositivo';$('zoneModel').value=isYolo?'yolo_trained':'trained';await $('zoneModel').onchange();}
+ try{const isYolo=/\.onnx$/i.test(file.name);if(!isYolo&&!/\.tflite$/i.test(file.name))throw Error('Elige model.onnx o model.tflite, no el ZIP ni los pesos .pt.');const bytes=new Uint8Array(await file.arrayBuffer());if(isYolo)trainedYoloBytes=bytes;else trainedBytes=bytes;$('trainedModelName').textContent=file.name+' · cargado en este dispositivo';$('zoneModel').value=isYolo?'yolo_trained':selectedModel==='lite3'?'lite3':'trained';await $('zoneModel').onchange();}
  catch(e){$('modelStatus').textContent='No se pudo leer el modelo: '+e.message;}
  $('trainedModelFile').value='';
 };
@@ -336,9 +334,20 @@ async function applyLayers(){
  if(!Number.isFinite(threshold)||threshold<=0||threshold>1)throw Error('Confianza inválida: usa un valor entre 0,01 y 1.');
  if(objectDetector?.setThreshold){objectDetector.setThreshold(threshold);objectDetector.setOptions?.(detectorOptions());}else{const old=objectDetector;objectDetector=null;objectPromise=null;if(old)await old.close();}
  await Promise.all([initZones(),initPose()]);
- $('layerStatus').textContent=['layerDetector','layerCrops','layerZones','layerPose','layerCadence'].map(id=>id.replace('layer','')+': '+(layer(id)?'sí':'no')).join(' · ');
+ $('layerStatus').textContent=['layerDetector','layerCrops','layerZones','layerPose','layerCadence'].map(id=>({layerDetector:'Detector',layerCrops:'Recortes',layerZones:'Confirmar zonas',layerPose:'Posturas',layerCadence:'Cadencia'})[id]+': '+(layer(id)?'sí':'no')).join(' · ');
  if(source&&video.readyState>=2){processFrame(video.currentTime);while(zoneBusy)await new Promise(resolve=>setTimeout(resolve,20));}
 }
-for(const id of ['layerDetector','layerCrops','layerZones','layerPose','layerCadence','detectorConfidence','detectorClasses','detectorAllClasses','detectorMaxDet'])$(id).onchange=()=>changeLayers().catch(error);
+for(const id of ['layerDetector','layerCrops','layerZones','layerPose','layerCadence','detectorConfidence','detectorObjects','detectorMaxDet'])$(id).onchange=()=>changeLayers().catch(error);
 $('onlyBikes').onclick=()=>{for(const id of ['layerCrops','layerZones','layerPose','layerCadence'])$(id).checked=false;$('layerDetector').checked=true;$('detectorConfidence').value='.25';return changeLayers().catch(error);};
 $('allLayers').onclick=()=>{for(const id of ['layerDetector','layerCrops','layerZones','layerPose','layerCadence'])$(id).checked=true;$('detectorConfidence').value='.45';return changeLayers().catch(error);};
+
+function syncModelUI(){
+ const config=MODELS[selectedModel], select=$('detectorObjects');
+ const allowed=config.pose?['person']:config.local&&selectedModel!=='lite3'?['all','bicycle']:['all','person','bicycle','motorcycle'];
+ for(const option of select.options)option.disabled=!allowed.includes(option.value);
+ if(!allowed.includes(select.value))select.value=config.pose?'person':'bicycle';
+ $('localModelControls').hidden=!config.local;
+ $('lite3Help').hidden=selectedModel!=='lite3';
+ $('objectsHelp').textContent=config.pose?'Este modelo solo reconoce personas.':config.local&&selectedModel!=='lite3'?'Modelo entrenado: bicicleta y bicicleta de spinning. Todo conserva sus categorías propias.':'Todo muestra las 80 categorías COCO. Persona = 0, bicicleta = 1, moto = 3.';
+}
+syncModelUI();

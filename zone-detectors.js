@@ -2,15 +2,17 @@
 export const MODELS={
  yolo26n:{splitOutput:true,name:'YOLO26N preentrenado',type:'onnx',pose:false,url:'https://huggingface.co/onnx-community/yolo26n-ONNX/resolve/a8dc7e14743e1cea8ccd493bd99b4c2827de1acf/onnx/model.onnx'},
  yolo26s:{splitOutput:true,name:'YOLO26S preentrenado',type:'onnx',pose:false,url:'https://huggingface.co/onnx-community/yolo26s-ONNX/resolve/37669b009f416cb1df28751257d6ec5f8e4b4e20/onnx/model.onnx'},
- yolo26m:{splitOutput:true,name:'YOLO26M preentrenado',type:'onnx',pose:false,url:'https://huggingface.co/onnx-community/yolo26m-ONNX/resolve/a1db4877f0a3ed68554c231cdae958e2280087e3/onnx/model.onnx'},
  yolo26pose:{normalizedPose:true,name:'YOLO26N-POSE preentrenado',type:'onnx',pose:true,url:'https://huggingface.co/onnx-community/yolo26n-pose-ONNX/resolve/8a9197eeec75fdb4953322a455126ca6d9780b41/onnx/model.onnx'},
- original:{name:'EfficientDet original',type:'mediapipe',url:'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float32/1/efficientdet_lite0.tflite'},
- lite2:{name:'EfficientDet-Lite2 preentrenado',type:'mediapipe',url:'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite2/float32/1/efficientdet_lite2.tflite'},
+ original:{name:'EfficientDet-Lite0 INT8',type:'mediapipe',url:'https://storage.googleapis.com/download.tensorflow.org/models/tflite/task_library/object_detection/android/lite-model_efficientdet_lite0_detection_metadata_1.tflite'},
+ lite2:{name:'EfficientDet-Lite2 preentrenado',type:'mediapipe',url:'https://storage.googleapis.com/download.tensorflow.org/models/tflite/task_library/object_detection/android/lite-model_efficientdet_lite2_detection_metadata_1.tflite'},
+ lite1:{name:'EfficientDet-Lite1 INT8',type:'mediapipe',url:'https://storage.googleapis.com/download.tensorflow.org/models/tflite/task_library/object_detection/android/lite-model_efficientdet_lite1_detection_metadata_1.tflite'},
+ lite3:{name:'EfficientDet-Lite3 INT8 · archivo local',type:'mediapipe',local:true,url:'https://tfhub.dev/tensorflow/lite-model/efficientdet/lite3/detection/metadata/1?lite-format=tflite'},
+ yolov8m:{name:'YOLOv8m preentrenado',type:'onnx',url:'https://huggingface.co/Kalray/yolov8/resolve/9e0af089be9c2f172e4fd9b724805f8b6514854e/yolov8m.onnx'},
+ yolo26spose:{normalizedPose:true,name:'YOLO26s-pose',type:'onnx',pose:true,url:'https://huggingface.co/onnx-community/yolo26s-pose-ONNX/resolve/6eb02d4fba1accea4086fa1306fad418dcd62854/onnx/model.onnx'},
  trained:{name:'EfficientDet entrenado · archivo local',type:'mediapipe',local:true},
  yolov8n:{name:'YOLOv8n preentrenado',type:'onnx',url:'https://huggingface.co/salim4n/yolov8n-detect-onnx/resolve/98100409491fa67f62a2e780a4efe485b86dfd0b/yolov8n-onnx-web/yolov8n.onnx'},
  yolo_trained:{name:'YOLO11 entrenado · archivo local',type:'onnx',local:true,classes:['bicicleta','bicicleta_spinning']},
  yolo_s:{name:'YOLO11s preentrenado',type:'onnx',url:'https://huggingface.co/giangndm/yolo11-onnx/resolve/8b180c762d5cf217886d16e64403508042207e4d/yolo11s_640.onnx'},
- yolo_m:{name:'YOLO11m preentrenado',type:'onnx',url:'https://huggingface.co/giangndm/yolo11-onnx/resolve/8b180c762d5cf217886d16e64403508042207e4d/yolo11m_640.onnx'},
  yolo:{name:'YOLO11n preentrenado',type:'onnx',url:'https://huggingface.co/webnn/yolo11n/resolve/9c5acfdd74aaff2d0f47c51b878506361039a51f/onnx/yolo11n.onnx'}
 };
 export function labelName(name){return ['bicicleta','bicicleta_spinning','bicycle'].includes(name)?'bicycle':name;}
@@ -61,8 +63,8 @@ export async function createZoneDetector(key,trainedBytes,threshold=.45,options=
   if(config.local&&!trainedBytes)throw Error('Extrae el ZIP del resultado y elige model.tflite en Cargar modelo entrenado.');
   const mod=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32');
   const vision=await mod.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm');
-  const detector=await mod.ObjectDetector.createFromOptions(vision,{baseOptions:{...(config.local?{modelAssetBuffer:trainedBytes}:{modelAssetPath:config.url}),delegate:'CPU'},runningMode:'IMAGE',scoreThreshold:threshold,maxResults:options.maxDet??20});
-  return {detect(input){const result=detector.detect(input);result.detections=result.detections.flatMap(d=>{const c=d.categories?.[0];if(!c)return [];const label=labelName(c.categoryName);const id=COCO_NAMES.indexOf(label);if(!config.local&&options.classIds!==null&&!(options.classIds??[0,1]).includes(id))return [];return [{...d,categories:[{...c,categoryName:label}]}];});return result;},close:()=>detector.close()};
+  const detector=await mod.ObjectDetector.createFromOptions(vision,{baseOptions:{...(config.local?{modelAssetBuffer:trainedBytes}:{modelAssetPath:config.url}),delegate:'CPU'},runningMode:'IMAGE',scoreThreshold:threshold,maxResults:options.maxDet??20,...((!config.local||key==='lite3')&&options.classIds&&{categoryAllowlist:options.classIds.map(id=>COCO_NAMES[id])})});
+  return {detect(input){const result=detector.detect(input);result.detections=result.detections.flatMap(d=>{const c=d.categories?.[0];if(!c)return [];const label=labelName(c.categoryName);const id=COCO_NAMES.indexOf(label);if((!config.local||key==='lite3')&&options.classIds!==null&&!(options.classIds??[0,1]).includes(id))return [];return [{...d,categories:[{...c,categoryName:label}]}];});return result;},close:()=>detector.close()};
  }
  if(config.local&&!trainedBytes)throw Error('Extrae el ZIP y carga export/model.onnx para usar YOLO11 entrenado.');
  const ort=await runtime();ort.env.wasm.numThreads=1;ort.env.wasm.wasmPaths='https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/';

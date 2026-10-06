@@ -1,7 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
 test('automatic scans lock zones, export them, and can be restarted from the UI',async()=>{
  const context2d={drawImage(){},clearRect(){},strokeRect(){},setLineDash(){},fillText(){},getImageData(){return {data:new Uint8ClampedArray(96*54*4)};}};
- const element=()=>({style:{setProperty(){}},classList:{add(){},remove(){}},append(){},replaceChildren(){},addEventListener(){},getContext(){return context2d;},checked:true,value:'',textContent:''});
+ const element=()=>({style:{setProperty(){}},classList:{add(){},remove(){}},append(){},replaceChildren(){},addEventListener(){},getContext(){return context2d;},checked:true,value:'',options:['all','person','bicycle','motorcycle'].map(value=>({value})),textContent:''});
  const els=new Map(),get=id=>{if(!els.has(id))els.set(id,element());return els.get(id);};
  Object.assign(get('video'),{readyState:2,seeking:false,videoWidth:1000,videoHeight:600,currentTime:0});
  let blobBody;
@@ -28,7 +28,7 @@ test('automatic scans lock zones, export them, and can be restarted from the UI'
 
 test('paused file scan waits for six slow samples, restores position and keeps cadence history empty',async()=>{
  const context2d={drawImage(){},clearRect(){},strokeRect(){},setLineDash(){},fillText(){},getImageData(){return {data:new Uint8ClampedArray(96*54*4)};}};
- const element=()=>({style:{setProperty(){}},classList:{add(){},remove(){}},append(){},replaceChildren(){},addEventListener(){},getContext(){return context2d;},checked:true,value:'',textContent:''});
+ const element=()=>({style:{setProperty(){}},classList:{add(){},remove(){}},append(){},replaceChildren(){},addEventListener(){},getContext(){return context2d;},checked:true,value:'',options:['all','person','bicycle','motorcycle'].map(value=>({value})),textContent:''});
  const els=new Map(),get=id=>{if(!els.has(id))els.set(id,element());return els.get(id);};
  const listeners=new Map(),emit=event=>{for(const f of [...(listeners.get(event)||[])])f();};
  const video=get('video');let currentTime=0;
