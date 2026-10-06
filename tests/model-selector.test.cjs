@@ -47,3 +47,11 @@ test('actual YOLO26 split layout converts normalized xywh to source boxes',async
 });
 
 test('optional layers start off and objects have readable names',()=>{const html=fs.readFileSync(require('node:path').join(__dirname,'../measure.html'),'utf8');for(const id of ['layerCrops','layerZones','layerPose','layerCadence'])assert.doesNotMatch(html.match(new RegExp('<input id="'+id+'"[^>]*>'))[0],/checked/);assert.match(html,/id="detectorObjects"/);assert.doesNotMatch(html,/id="detectorClasses"/);});
+
+test('model information describes served ONNX sizes and device-specific references',async()=>{
+ const {MODELS}=await modulePromise;
+ assert.equal(MODELS.yolov8m.bytes,103789086);assert.equal(MODELS.yolov8m.format,'.onnx');
+ for(const key of ['yolov8n','yolov8m','yolo','yolo_s','yolo26n','yolo26s','yolo26pose','yolo26spose']){assert.equal(MODELS[key].inputSize,640);assert.ok(MODELS[key].referenceMs>0);assert.match(MODELS[key].referenceDevice,/CPU/);}
+ assert.equal(MODELS.original.inputSize,320);assert.match(MODELS.original.referenceDevice,/Pixel 4/);
+ assert.equal(MODELS.yolo_trained.bytes,null);assert.equal(MODELS.trained.referenceMs,null);
+});

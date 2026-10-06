@@ -1,4 +1,4 @@
-import {MODELS,createZoneDetector} from './zone-detectors.js?v=model-ui2';
+import {MODELS,createZoneDetector} from './zone-detectors.js?v=model-info3';
 const $=id=>document.getElementById(id),video=$('video'),canvas=$('overlay'),ctx=canvas.getContext('2d');
 const inputCanvas=document.createElement('canvas'),inputCtx=inputCanvas.getContext('2d',{willReadFrequently:true});
 const pixelCanvas=document.createElement('canvas');pixelCanvas.width=96;pixelCanvas.height=54;
@@ -343,6 +343,12 @@ $('allLayers').onclick=()=>{for(const id of ['layerDetector','layerCrops','layer
 
 function syncModelUI(){
  const config=MODELS[selectedModel], select=$('detectorObjects');
+ const localBytes=selectedModel==='yolo_trained'?trainedYoloBytes:trainedBytes;
+ const bytes=config.local&&localBytes?localBytes.byteLength:config.bytes;
+ const size=bytes?(bytes/1048576).toFixed(1).replace('.',',')+' MiB':'tamaño disponible al cargar el archivo';
+ const timing=config.referenceMs?config.referenceMs.toLocaleString('es-ES')+' ms ≈ '+(1000/config.referenceMs).toFixed(1).replace('.',',')+' FPS · '+config.referenceDevice+' · '+config.inputSize+' × '+config.inputSize:'sin tiempo de referencia para este modelo entrenado';
+ $('modelDetails').textContent=size+' · '+(config.format||'según archivo')+' · '+timing;
+
  const allowed=config.pose?['person']:config.local&&selectedModel!=='lite3'?['all','bicycle']:['all','person','bicycle','motorcycle'];
  for(const option of select.options)option.disabled=!allowed.includes(option.value);
  if(!allowed.includes(select.value))select.value=config.pose?'person':'bicycle';

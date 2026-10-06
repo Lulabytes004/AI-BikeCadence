@@ -103,3 +103,9 @@ INTERFAZ DE COMPARACIÓN DE MODELOS
    «Solo detector» apaga las capas adicionales y conserva el objeto elegido.
 Los tamaños EfficientDet son aproximados y corresponden al archivo INT8.
 Lite3 se descarga desde el enlace oficial y se carga como archivo .tflite.
+
+El selector muestra el tamaño real aproximado del archivo servido, en MiB,
+formato y latencia de referencia. YOLO: ONNX 640×640, CPU de ordenador.
+EfficientDet: Pixel 4 CPU, 4 hilos, entradas Lite0 320, Lite1 384, Lite2 448,
+Lite3 512. No son mediciones del navegador ni incluyen capas adicionales.
+Los modelos personalizados muestran el tamaño del archivo cargado.
