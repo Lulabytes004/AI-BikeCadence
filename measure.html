@@ -16,6 +16,7 @@
 <div class="controls">
 <button id="camera" class="primary">Iniciar cámara</button>
 <label>Cámara <select id="cameraFacing"><option value="environment">Trasera / predeterminada</option><option value="user">Frontal</option></select></label>
+<label>Resolución <select id="cameraResolution"><option value="640x480" selected>640 × 480 · menor resolución</option><option value="1280x720">1280 × 720 · más detalle</option></select></label>
 <label class="file-label" for="file">Cargar vídeo</label><input id="file" type="file" accept="video/*,.mp4,.mov,.webm">
 <button id="step" disabled>+1 fotograma</button>
 </div>
@@ -28,7 +29,7 @@
 <p class="help">Durante la reproducción, el botón de análisis cambia a <strong>Pausar</strong>. Al pulsarlo otra vez desde la pausa comienza una nueva pasada desde 0 y reinicia el historial de medición. Puedes repetir el análisis o cambiar el modelo de postura conservando las zonas.</p>
 <p class="help"><strong>+1 fotograma:</strong> pausa el vídeo, avanza un intervalo según los FPS configurados (por ejemplo, 1/30 de segundo a 30 FPS) y analiza la postura de esa imagen. Es un avance aproximado; permite inspeccionar los puntos paso a paso conservando las zonas y el historial, sin acumular ciclos de cadencia en esa vista previa.</p>
 <p class="help"><strong>Reiniciar medición:</strong> borra el historial de RPM, ciclos y datos registrados y comienza una medición nueva. Conserva las zonas y la posición del vídeo; no vuelve al inicio ni repite la detección de zonas. Si el vídeo se está reproduciendo, continúa.</p>
-<p class="help"><strong>Cámara en directo:</strong> pulsa Iniciar cámara y concede el permiso. Se confirman las zonas durante los primeros segundos y después se analizan posturas y cadencia en directo. El segundo botón pausa o continúa el análisis; Detectar y fijar zonas vuelve a localizar las personas. Cambiar entre frontal y trasera reinicia las zonas. En ordenador se usa la cámara disponible. En móvil abre la app mediante HTTPS; localhost funciona en el propio ordenador.</p>
+<p class="help"><strong>Cámara en directo:</strong> pulsa Iniciar cámara y concede el permiso. Se confirman las zonas durante los primeros segundos y después se analizan posturas y cadencia en directo. El segundo botón pausa o continúa el análisis; Detectar y fijar zonas vuelve a localizar las personas. Cambiar de cámara o resolución reinicia la captura y las zonas. Puedes comparar 640 × 480 y 1280 × 720; junto a la imagen se muestra la resolución real, que puede variar según el dispositivo. YOLO mantiene su entrada de 640 × 640. En ordenador se usa la cámara disponible. En móvil abre la app mediante HTTPS; localhost funciona en el propio ordenador.</p>
 <p class="help">Activa <strong>Dibujar postura (puntos y esqueleto)</strong> para ver los puntos que devuelve el modelo. Mantén la cámara fija: las zonas permanecen fijas mientras las posturas se actualizan.</p>
 </details>
 <div id="videoControls" class="panel hidden">
@@ -94,5 +95,5 @@
 </details>
 <p class="help">El detector compara rodillas y tobillos y exige movimiento periódico antes de mostrar RPM. Una persona que no se reconoce se muestra sin medición. Los dibujos esquemáticos pueden no ser reconocidos por el modelo de personas.</p>
 </main>
-<script src="./cadence.js?v=camerastart2"></script><script src="./bike-zones.js?v=camerastart2"></script><script src="./measure.js?v=camerastart2" type="module"></script>
+<script src="./cadence.js?v=cameraresolution1"></script><script src="./bike-zones.js?v=cameraresolution1"></script><script src="./measure.js?v=cameraresolution1" type="module"></script>
 </body></html>
