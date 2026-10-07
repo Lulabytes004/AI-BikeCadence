@@ -568,7 +568,7 @@ function motionUpdate(found,t){
   let meter=motionMeters.get(person.id);if(!meter){meter=new MotionMeter();motionMeters.set(person.id,meter);}
   const result=meter.update(person.lm,t,Number($('motionTolerance').value)||5);
   rows.push(`Ciclista ${person.id} · `+(result?`Desplazamiento: ${result.dx.toFixed(1)} % de imagen · ${result.direction}`:'Sin puntos fiables'));
-  if(result&&$('motionDraw').checked){ctx.save();ctx.strokeStyle=colors[(person.id-1)%colors.length];ctx.lineWidth=3;ctx.setLineDash([6,4]);ctx.beginPath();ctx.moveTo(result.reference.x*canvas.width,0);ctx.lineTo(result.reference.x*canvas.width,canvas.height);ctx.stroke();ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(result.reference.x*canvas.width,result.hip.y*canvas.height);ctx.lineTo(result.hip.x*canvas.width,result.hip.y*canvas.height);ctx.stroke();ctx.fillStyle=ctx.strokeStyle;ctx.beginPath();ctx.arc(result.hip.x*canvas.width,result.hip.y*canvas.height,6,0,Math.PI*2);ctx.fill();ctx.restore();}
+  if(result&&$('motionDraw').checked){ctx.save();ctx.strokeStyle=colors[(person.id-1)%colors.length];ctx.lineWidth=3;ctx.setLineDash([6,4]);ctx.beginPath();ctx.moveTo(result.reference.x*canvas.width,0);ctx.lineTo(result.reference.x*canvas.width,canvas.height);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle=ctx.strokeStyle;ctx.beginPath();ctx.arc(result.hip.x*canvas.width,result.hip.y*canvas.height,6,0,Math.PI*2);ctx.fill();ctx.restore();}
  }
  $('motionResult').textContent=rows.join('\n')||(motionSelection==='all'?'Esperando caderas visibles.':'Esperando al ciclista '+motionSelection+'; se conserva tu selección.');
 }
