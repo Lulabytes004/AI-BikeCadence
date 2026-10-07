@@ -43,7 +43,7 @@
 <div class="controls" id="localModelControls" hidden><label class="file-label" for="trainedModelFile">Cargar archivo del modelo</label><input id="trainedModelFile" type="file" accept=".tflite,.onnx"><span id="trainedModelName" class="help">Extrae tu ZIP y elige .tflite o .onnx. El archivo se procesa en tu dispositivo.</span></div>
 <p class="help">Lite3 y Lite4 se descargan automáticamente al seleccionarlos. Si el navegador conserva el modelo, se reutiliza en la siguiente carga.</p>
 </details>
-<h3>2. Objetos del modelo</h3><div class="settings">
+<h3>Configuración del detector inicial</h3><div class="settings">
 <label>Objetos <select id="detectorObjects"><option value="all">Todo (sin filtro)</option><option value="person" selected>Persona</option><option value="bicycle">Bicicleta</option><option value="motorcycle">Moto (motorcycle)</option></select></label>
 <label>Confianza <input id="detectorConfidence" type="number" min="0.01" max="1" step="0.01" value="0.25"></label>
 <label>Límite de personas por imagen <input id="detectorMaxDet" type="number" min="1" max="300" value="50" style="width:75px"></label>
