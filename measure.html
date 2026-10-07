@@ -12,6 +12,7 @@
 <a href="./index.html">← Índice</a>
 <div class="top"><div class="title">Bike Cadence Vision</div><div id="status" class="status">Preparado</div></div>
 <div id="sourceLabel">Cámara o archivo de vídeo · detección de personas y postura por zona</div>
+<section class="panel"><label><strong>Modo de análisis</strong> <select id="poseScope"><option value="zones">Cada zona confirmada</option><option value="full" selected>Imagen completa</option></select></label><p id="analysisModeHelp" class="help">Analiza las posturas en una sola imagen. Las zonas se identifican internamente con YOLOv8n.</p></section>
 <div class="view" id="view"><video id="video" playsinline muted preload="auto"></video><canvas id="overlay"></canvas></div>
 <div class="controls">
 <button id="camera" class="primary">Iniciar cámara</button>
@@ -45,11 +46,8 @@
 <canvas id="compareCanvas" style="position:relative;width:100%;max-width:100%;height:auto"></canvas>
 </details>
 </section>
-<div class="panel">
+<details class="panel" id="detectorSettings"><summary>Identificación inicial de zonas · YOLOv8n</summary>
 <h3>1. Configuración del detector inicial de zonas</h3><div class="settings"><label>Modelo <select id="zoneModel"><optgroup label="EfficientDet"><option value="original">EfficientDet-Lite0 · 4,4 MiB · .tflite INT8 · 37 ms ref. Pixel 4</option><option value="lite1">EfficientDet-Lite1 · 5,8 MiB · .tflite INT8 · 49 ms ref. Pixel 4</option><option value="lite2">EfficientDet-Lite2 · 7,2 MiB · .tflite INT8 · 69 ms ref. Pixel 4</option><option value="lite3">EfficientDet-Lite3 · 11,4 MiB · .tflite INT8 · 116 ms ref. Pixel 4</option><option value="lite4">EfficientDet-Lite4 · 19,9 MiB · .tflite INT8 · 260 ms ref. Pixel 4</option><option value="trained">EfficientDet entrenado · tamaño según archivo · .tflite (según archivo) · tiempo sin medir</option></optgroup><optgroup label="YOLOv8"><option value="yolov8n" selected>YOLOv8n · .pt: 6,2 MB · app ONNX: 12,2 MiB · 80,4 ms ref. CPU ONNX</option><option value="yolov8m">YOLOv8m · .pt: 52 MB · app ONNX: 99,0 MiB · 234,7 ms ref. CPU ONNX</option></optgroup><optgroup label="YOLO11"><option value="yolo">YOLO11n · 10,2 MiB · .onnx · 56,1 ms ref. CPU ONNX</option><option value="yolo_s">YOLO11s · 36,3 MiB · .onnx · 90 ms ref. CPU ONNX</option><option value="yolo11pose">YOLO11n-pose · personas · 11,3 MiB · .onnx · 52,4 ms ref. CPU ONNX</option><option value="yolo_trained">YOLO11 entrenado · tamaño según archivo · .onnx · tiempo sin medir</option></optgroup><optgroup label="YOLO26"><option value="yolo26n">YOLO26n · 9,4 MiB · .onnx · 38,9 ms ref. CPU ONNX</option><option value="yolo26s">YOLO26s · 36,5 MiB · .onnx · 87,2 ms ref. CPU ONNX</option><option value="yolo26pose">YOLO26n-pose · personas · 11,5 MiB · .onnx · 40,3 ms ref. CPU ONNX</option><option value="yolo26spose">YOLO26s-pose · personas · 39,9 MiB · .onnx · 85,3 ms ref. CPU ONNX</option></optgroup></select></label></div>
-<p><label><input id="useWebGPU" type="checkbox" role="switch"> Acelerar YOLO con GPU / WebGPU</label></p>
-<p id="gpuStatus" class="help" role="status">YOLO: CPU / WASM seleccionado.</p>
-<p class="help">Afecta al detector YOLO y al modelo YOLO de postura. Al cambiarlo se recargan los motores y se conservan las zonas. WebGPU necesita un navegador y dispositivo compatibles; si falla, se usa CPU automáticamente. En móvil, abre la app mediante HTTPS; una dirección HTTP del Mac en la red local no habilita WebGPU. La primera carga con GPU puede tardar más por la preparación del modelo. MediaPipe mantiene su propio motor.</p>
 <div id="modelLoadPanel" style="padding:12px;border:1px solid #64748b;border-radius:8px;margin:12px 0"><strong id="modelStatus" role="status" aria-live="polite">Modelo seleccionado. Se cargará al abrir un vídeo o iniciar la cámara.</strong><progress id="modelProgress" hidden style="display:block;width:100%;margin-top:8px"></progress></div>
 <p id="modelDetails" class="help" role="status"></p>
 <details><summary>Tamaños, rendimiento y descarga de modelos</summary>
@@ -69,11 +67,15 @@
 <p class="help">Todo muestra las 80 categorías COCO. Persona = 0, bicicleta = 1, moto = 3. Estas categorías corresponden a los detectores COCO; los modelos Pose solo reconocen personas.</p>
 <p id="objectsHelp" class="help">Las opciones se adaptan al modelo.</p>
 </details>
-<h3>2. Configuración del modelo para analizar las posturas</h3>
+</details>
+<div class="panel"><h3>Configuración del modelo para analizar las posturas</h3>
 <div class="settings"><label>Postura <select id="poseModel"><option value="none">Ninguno · solo detectar zonas</option>
 <optgroup label="MediaPipe"><option value="mediapipe_lite">MediaPipe Pose Lite</option><option value="mediapipe_full">MediaPipe Pose Full</option><option value="mediapipe_heavy">MediaPipe Pose Heavy</option></optgroup>
 <optgroup label="YOLO"><option value="yolov8pose">YOLOv8n-pose</option><option value="yolo11pose">YOLO11n-pose</option><option value="yolo26pose" selected>YOLO26n-pose</option><option value="yolo26spose">YOLO26s-pose</option></optgroup>
-</select></label><label>Analizar <select id="poseScope"><option value="zones">Cada zona confirmada</option><option value="full" selected>Imagen completa (comparación)</option></select></label></div>
+</select></label></div>
+<p><label><input id="useWebGPU" type="checkbox" role="switch"> Acelerar YOLO con GPU / WebGPU</label></p>
+<p id="gpuStatus" class="help" role="status">YOLO: CPU / WASM seleccionado.</p>
+<p class="help">Afecta al detector YOLO y al modelo YOLO de postura. Al cambiarlo se recargan los motores y se conservan las zonas. WebGPU necesita un navegador y dispositivo compatibles; si falla, se usa CPU automáticamente. En móvil, abre la app mediante HTTPS; una dirección HTTP del Mac en la red local no habilita WebGPU. La primera carga con GPU puede tardar más por la preparación del modelo. MediaPipe mantiene su propio motor.</p>
 <p id="poseStatus" class="help" role="status" aria-live="polite">YOLO26n-pose seleccionado; se cargará al abrir un vídeo o iniciar la cámara.</p><progress id="poseProgress" hidden style="width:100%"></progress>
 <p class="help">Al seleccionar un modelo de postura se carga automáticamente y se muestra su progreso arriba. Con «Ninguno» se detectan las zonas sin analizar posturas. Con un modelo seleccionado se analiza la postura y se calcula la cadencia.</p>
 <div hidden aria-hidden="true"><button id="onlyBikes">Solo detector</button><button id="allLayers">Todas</button>
@@ -95,5 +97,5 @@
 </details>
 <p class="help">El detector compara rodillas y tobillos y exige movimiento periódico antes de mostrar RPM. Una persona que no se reconoce se muestra sin medición. Los dibujos esquemáticos pueden no ser reconocidos por el modelo de personas.</p>
 </main>
-<script src="./cadence.js?v=cameraauto1"></script><script src="./bike-zones.js?v=cameraauto1"></script><script src="./measure.js?v=cameraauto1" type="module"></script>
+<script src="./cadence.js?v=analysismode1"></script><script src="./bike-zones.js?v=analysismode1"></script><script src="./measure.js?v=analysismode1" type="module"></script>
 </body></html>

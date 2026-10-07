@@ -78,6 +78,11 @@ const poseName=()=>$('poseModel').selectedOptions?.[0]?.textContent||selectedPos
 const poseConfig=()=>selectedPoseModel+':'+poseScope()+':'+MAX_CYCLISTS+':'+$('useWebGPU').checked;
 const gpuReports={};
 const gpuOptions=(role='Detector')=>({useWebGPU:$('useWebGPU').checked,onBackend:info=>{gpuReports[role]=info.backend+(info.fallbackReason?' · '+info.fallbackReason:'');$('gpuStatus').textContent=Object.entries(gpuReports).map(([name,text])=>name+': '+text).join(' | ');}});
+function syncAnalysisMode(){
+ const full=poseScope()==='full';$('detectorSettings').open=!full;
+ $('scanZones').hidden=full;
+ $('analysisModeHelp').textContent=full?'Imagen completa: elige el modelo de postura. Las zonas se identifican internamente antes del análisis; puedes consultar los ajustes en el menú cerrado.':'Cada zona confirmada: configura el detector inicial, fija las zonas y después analiza la postura dentro de cada una.';
+}
 function syncAutomaticPhases(){
  $('layerDetector').checked=true;$('layerZones').checked=true;$('layerCrops').checked=$('detectorTiles').checked;
  $('layerPose').checked=selectedPoseModel!=='none';$('layerCadence').checked=selectedPoseModel!=='none';
@@ -309,7 +314,7 @@ $('play').onclick=async()=>{
   if(!video.paused){video.pause();cancelLoop();$('play').textContent='2. Continuar análisis en directo';setStatus('Análisis en directo pausado');}
   else{await initPose();await video.play();$('play').textContent='Pausar análisis en directo';schedule();}return;
  }if(!video.paused){video.pause();cancelLoop();$('play').textContent='2. Analizar posturas desde el inicio';setStatus('Pausa · medición conservada');}
- else{if(!bikeZones.locked||!bikeZones.zones.length){setStatus('Primero pulsa Detectar y fijar zonas.');return;}await initPose();await seekTo(0);lastMediaTime=-1;video.playbackRate=Number($('speed').value);await video.play();$('play').textContent='Pausar';schedule();}}catch(e){error(e);}
+ else{if(poseScope()==='full'&&!bikeZones.locked)await $('scanZones').onclick();if(poseScope()==='zones'&&(!bikeZones.locked||!bikeZones.zones.length)){setStatus('Primero pulsa Detectar y fijar zonas.');return;}await initPose();await seekTo(0);lastMediaTime=-1;video.playbackRate=Number($('speed').value);await video.play();$('play').textContent='Pausar';schedule();}}catch(e){error(e);}
 };
 $('step').onclick=async()=>{try{const fps=Math.max(1,Number($('fps').value)||30);await seekTo(Math.min(video.duration,video.currentTime+1/fps),false);}catch(e){error(e);}};
 $('seek').onchange=async()=>{try{await seekTo(Number($('seek').value));}catch(e){error(e);}};
@@ -447,11 +452,21 @@ async function applyLayers(){
  syncAutomaticPhases();
  if(source&&video.readyState>=2){await processFrame(video.currentTime);while(zoneBusy)await new Promise(resolve=>setTimeout(resolve,20));}
 }
-for(const id of ['layerDetector','layerCrops','layerZones','layerPose','layerCadence','detectorConfidence','detectorObjects','detectorMaxDet','poseScope','maxZones','detectorTiles'])$(id).onchange=()=>changeLayers().catch(error);
+for(const id of ['layerDetector','layerCrops','layerZones','layerPose','layerCadence','detectorConfidence','detectorObjects','detectorMaxDet','maxZones','detectorTiles'])$(id).onchange=()=>changeLayers().catch(error);
 $('onlyBikes').onclick=()=>{for(const id of ['layerCrops','layerZones','layerPose','layerCadence'])$(id).checked=false;$('layerDetector').checked=true;$('detectorConfidence').value='.25';return changeLayers().catch(error);};
 $('allLayers').onclick=()=>{for(const id of ['layerDetector','layerCrops','layerZones','layerPose','layerCadence'])$(id).checked=true;$('detectorConfidence').value='.45';return changeLayers().catch(error);};
 
 
+$('poseScope').onchange=async()=>{
+ video.pause();cancelLoop();syncAnalysisMode();
+ try{
+  while(frameBusy||zoneBusy)await new Promise(resolve=>setTimeout(resolve,20));
+  if(poseScope()==='full'&&selectedModel!=='yolov8n'){
+   const old=objectDetector;objectDetector=null;await old?.close();selectedModel='yolov8n';$('zoneModel').value='yolov8n';syncModelUI();
+  }
+  await changeLayers();
+ }catch(e){error(e);}
+};
 $('useWebGPU').onchange=()=>{
  layerChange=layerChange.catch(()=>{}).then(async()=>{
   video.pause();cancelLoop();$('play').textContent='2. Analizar posturas desde el inicio';$('useWebGPU').disabled=true;
@@ -499,7 +514,7 @@ function syncModelUI(){
 
  $('objectsHelp').textContent=config.pose?'Este modelo solo reconoce personas.':config.local?'Modelo entrenado: bicicleta y bicicleta de spinning. Todo conserva sus categorías propias.':'Todo muestra las 80 categorías COCO. Persona = 0, bicicleta = 1, moto = 3.';
 }
-syncModelUI();renderReferences();syncAutomaticPhases();
+syncModelUI();renderReferences();syncAutomaticPhases();syncAnalysisMode();
 
 function setModelLoading(busy){
  detectorLoading=busy;const blocked=busy||poseLoading||manualScan;

@@ -72,3 +72,10 @@ test('paused zone scan analyzes posture at the restored frame without recording 
  await get('scanZones').onclick();assert.equal(video.currentTime,2);assert.equal(video.paused,true);assert.equal(frames.at(-1),2);
  assert.match(get('poseResults').textContent,/1 posturas/);assert.ok(draws.points>0);
 });
+
+test('full-image mode scans zones internally and plays even when none are confirmed',async()=>{
+ const {get,debug,video}=harness();get('poseScope').value='full';get('detectorTiles').checked=false;get('layerCrops').checked=false;let calls=0;
+ debug.setZoneModel({close(){},async detect(){calls++;return {detections:[]};}});
+ await debug.openFile({name:'people.mp4'});for(let i=0;i<4;i++)await new Promise(resolve=>setImmediate(resolve));calls=0;
+ await get('play').onclick();assert.equal(calls,6);assert.equal(video.paused,false);assert.equal(video.currentTime,0);assert.equal(debug.zones.zones.length,0);
+});
