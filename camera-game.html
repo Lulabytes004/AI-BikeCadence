@@ -40,7 +40,8 @@
     .ok{color:#9be3a5}
     .bad{color:#ff9b9b}
     @media(min-width:640px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}.controls{grid-template-columns:repeat(4,minmax(0,1fr))}}
-   .camera-view{position:relative;background:#080b10;aspect-ratio:16/9;border-radius:12px;overflow:hidden}.camera-view video,.camera-view canvas{position:absolute;width:100%;height:100%;object-fit:contain}.camera-view canvas{pointer-events:none}.camera-options{display:flex;flex-wrap:wrap;gap:12px}.camera-options label{flex:1;min-width:160px;font-size:15px}.camera-options label select{display:block;margin-top:10px}.camera-unavailable{opacity:.45}.camera-check{display:flex;align-items:center;gap:10px;line-height:1.45}.camera-check input[type=checkbox]{flex:0 0 18px;width:18px;height:18px;margin:0;padding:0}.camera-actions{display:grid;gap:10px}.camera-start-stop{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.camera-start-stop button{min-width:0}
+   .camera-view{position:relative;background:#080b10;aspect-ratio:16/9;border-radius:12px;overflow:hidden}.camera-view video,.camera-view canvas{position:absolute;width:100%;height:100%;object-fit:contain}.camera-view canvas{pointer-events:none}.camera-options{display:flex;flex-wrap:wrap;gap:12px}.camera-options label{flex:1;min-width:160px;font-size:15px}.camera-options label select{display:block;margin-top:10px}.camera-unavailable{opacity:.45}.camera-check{display:flex;align-items:center;gap:10px;line-height:1.45}.camera-check input[type=checkbox]{flex:0 0 18px;width:18px;height:18px;margin:0;padding:0}.camera-cadence{border:1px solid #303641;border-radius:12px;text-align:center;padding:16px;margin:14px 0 20px}.camera-cadence span{display:block;color:#aeb5c1;font-size:13px}.camera-cadence strong{display:block;color:#50e6ad;font-size:44px;margin-top:6px}.camera-toggles{display:flex;gap:18px;align-items:center;overflow-x:auto;margin:18px 0}.camera-toggles .camera-check{flex:1;min-width:220px;margin:0}.game-overview{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr) minmax(0,1fr);gap:16px}.game-level,.game-state{grid-column:1 / -1}.game-progress{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.game-overview .metric,.game-progress .metric{min-width:0}
+.camera-actions{display:grid;gap:10px}.camera-start-stop{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.camera-start-stop button{min-width:0}
 .camera-heading{display:flex;align-items:center;justify-content:space-between;gap:8px 16px;flex-wrap:wrap;margin-bottom:12px}.camera-heading h2{margin:0}.camera-performance{font-size:12px;color:#aeb5c1;font-variant-numeric:tabular-nums}.camera-metrics{font-variant-numeric:tabular-nums;margin:12px 0;color:#aeb5c1}
 </style>
 </head>
@@ -53,23 +54,24 @@
     <section class="card">
 <div class="camera-heading"><h2>Platform Challenge · cámara</h2><span id="cameraPerformance" class="camera-performance">Procesamiento: -- ms · FPS: --</span></div>
 <div class="camera-view" id="cameraView"><video id="cameraVideo" autoplay playsinline muted></video><canvas id="cameraOverlay"></canvas></div>
+<div class="camera-cadence"><span id="cameraCadenceLabel">Cadencia detectada · jugador seleccionado</span><strong id="cameraCadence">-- RPM</strong></div>
 <div class="camera-options">
 <label>Modelo / modo<select id="cameraModel"><option value="yolo26pose">YOLO26n-pose · imagen completa</option><option value="mediapipe_lite">MediaPipe Lite · imagen completa</option><option value="mediapipe_full">MediaPipe Full · imagen completa</option><option value="mediapipe_zone">MediaPipe Lite · zona del jugador (YOLOv8n inicial)</option></select></label>
 <label>Cámara<select id="cameraFacing"><option value="environment">Trasera / predeterminada</option><option value="user">Frontal</option></select></label>
 <label>Resolución<select id="cameraResolution"><option value="auto">Automática</option><option value="640x480">640 × 480</option><option value="1280x720">1280 × 720</option></select></label>
 <label>Jugador<select id="cameraPlayer"><option value="">Esperando detección</option></select></label>
 </div>
-<p><label class="camera-check"><input type="checkbox" id="cameraGPU" checked> YOLO · aceleración WebGPU (CPU si no está disponible)</label></p>
-<p><label class="camera-check"><input type="checkbox" id="cameraTracking"> MediaPipe · VIDEO con seguimiento (apagado = IMAGE)</label></p>
-<p><label class="camera-check"><input type="checkbox" id="cameraSkeleton" checked> Mostrar puntos y esqueleto</label></p>
-<div class="camera-actions"><div class="camera-start-stop"><button id="cameraStart">Iniciar cámara</button><button id="cameraStop" disabled>Detener cámara</button></div><button id="cameraRescan" hidden disabled>Volver a detectar zonas</button></div>
+<div class="camera-toggles"><label class="camera-check"><input type="checkbox" id="cameraGPU" checked> YOLO · aceleración WebGPU (CPU si no está disponible)</label>
+<label class="camera-check"><input type="checkbox" id="cameraTracking"> MediaPipe · VIDEO con seguimiento (apagado = IMAGE)</label>
+<label class="camera-check"><input type="checkbox" id="cameraSkeleton" checked> Mostrar puntos y esqueleto</label></div>
+<div class="camera-actions"><div class="camera-start-stop"><button id="cameraStart">📷 Iniciar cámara</button><button id="cameraStop" disabled>■ Detener cámara</button></div><button id="cameraRescan" hidden disabled>Volver a detectar zonas</button></div>
 <p id="cameraStatus" role="status">Abre la cámara, selecciona un jugador y después inicia el nivel.</p>
-<p id="cameraMetrics" class="camera-metrics">Cadencia: -- RPM</p>
+<p id="cameraMetrics" class="camera-metrics">0 posturas</p>
 <p class="note">Las vueltas del jugador seleccionado controlan el mismo reto de plataformas. Solo se cuentan ciclos confirmados; el botón manual permanece para comparar. El modo por zonas identifica personas con YOLOv8n y analiza únicamente la zona seleccionada. Cambiar de jugador o modelo reinicia el seguimiento. Para cámara en móvil utiliza HTTPS.</p>
 </section>
 <section class="card">
-      <div class="grid">
-        <div class="metric big"><span>Nivel</span><strong id="level">1</strong></div>
+      <div class="game-overview">
+        <div class="metric big game-level"><span>Nivel</span><strong id="level">1</strong></div>
         <div class="metric big"><span>RPM objetivo</span><strong id="targetRpm">50</strong></div>
         <div class="metric"><span>PLATAFORMA ACTUAL / PLATAFORMAS DEL NIVEL</span><strong id="platform">1 / 6</strong></div>
         <div class="metric"><span>Fallos</span><strong id="failures">0 / 3</strong><div class="errors" id="errorDots"></div></div>
@@ -78,12 +80,12 @@
     </section>
 
     <section class="card">
-      <div class="grid">
+      <div class="game-progress">
         <div class="metric"><span>Vueltas: Realizadas / Requeridas por plataforma</span><strong id="currentRevs">0 / 10</strong></div>
         <div class="metric"><span>Tiempo restante / tiempo de plataforma</span><strong><span id="remaining">12.00 s</span> / <span id="platformTime">12.00 s</span></strong></div>
         <div class="metric"><span>Vueltas nivel</span><strong id="levelRevs">0 / 60</strong></div>
         <div class="metric"><span>Duración teórica nivel</span><strong id="levelDuration">72.0 s</strong></div>
-        <div class="metric"><span>Estado</span><strong id="stateText">Preparado</strong></div>
+        <div class="metric game-state"><span>Estado</span><strong id="stateText">Preparado</strong></div>
       </div>
     </section>
 
@@ -332,6 +334,6 @@ render();
 window.platformCameraPedal=()=>{if(running&&!reached&&!disqualified)pedal();};
 </script>
 <script src="./cadence.js"></script><script src="./bike-zones.js"></script>
-<script type="module" src="./camera-game.js?v=6"></script>
+<script type="module" src="./camera-game.js?v=7"></script>
 </body>
 </html>

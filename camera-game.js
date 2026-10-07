@@ -13,12 +13,12 @@ syncAcceleration();
 const good=p=>p&&p.visibility>=.3&&Number.isFinite(p.x)&&Number.isFinite(p.y);
 function cameraFeedback(button,text){button.classList.add('pressed');setTimeout(()=>button.classList.remove('pressed'),180);status(text);}
 function status(text){$('cameraStatus').textContent=text;}
-function resetData(){zones.reset();tracks.reset();scanCount=0;lastScan=-Infinity;baseline=null;poses=[];lastPixels=null;lastMotion=performance.now();fpsStart=performance.now();fpsFrames=0;shownFPS=0;}
-function stopCapture(){generation++;if(raf!==null)cancelAnimationFrame(raf);raf=null;stream?.getTracks().forEach(t=>t.stop());stream=null;video.pause();video.srcObject=null;$('cameraStop').disabled=true;$('cameraRescan').disabled=true;$('cameraStart').classList.remove('camera-active');$('cameraStart').textContent='Iniciar cámara';}
+function resetData(){$('cameraCadence').textContent='-- RPM';$('cameraCadenceLabel').textContent='Cadencia detectada · jugador seleccionado';zones.reset();tracks.reset();scanCount=0;lastScan=-Infinity;baseline=null;poses=[];lastPixels=null;lastMotion=performance.now();fpsStart=performance.now();fpsFrames=0;shownFPS=0;}
+function stopCapture(){generation++;if(raf!==null)cancelAnimationFrame(raf);raf=null;stream?.getTracks().forEach(t=>t.stop());stream=null;video.pause();video.srcObject=null;$('cameraStop').disabled=true;$('cameraRescan').disabled=true;$('cameraStart').classList.remove('camera-active');$('cameraStart').textContent='📷 Iniciar cámara';}
 async function closeModels(){const old=model,od=detector;model=null;detector=null;await old?.close();await od?.close();}
 async function deadline(promise,message){let timer;try{return await Promise.race([promise,new Promise((_,reject)=>timer=setTimeout(()=>reject(Error(message)),20000))]);}finally{clearTimeout(timer);}}
 async function start(){
- if(loading)return;loading=true;$('cameraStart').disabled=true;stopCapture();const token=generation;$('cameraStart').textContent='Iniciando cámara…';
+ if(loading)return;loading=true;$('cameraStart').disabled=true;stopCapture();const token=generation;$('cameraStart').textContent='📷 Iniciando cámara…';
  try{
   while(busy)await new Promise(r=>setTimeout(r,20));await closeModels();resetData();
   if(!navigator.mediaDevices?.getUserMedia)throw Error('La cámara necesita HTTPS o localhost.');
@@ -35,7 +35,7 @@ async function start(){
    if(token!==generation){await closeModels();return;}
   }
   $('cameraView').style.aspectRatio=`${video.videoWidth}/${video.videoHeight}`;$('cameraStop').disabled=false;$('cameraRescan').disabled=!zoneMode();
-  $('cameraStart').textContent='Cámara activa · reiniciar';$('cameraStart').classList.add('camera-active');$('cameraPlayer').replaceChildren();status(zoneMode()?'Identificando zonas (0/6)…':'Cámara lista · selecciona un jugador e inicia el nivel.');loop(token);
+  $('cameraStart').textContent='📷 Cámara activa · reiniciar';$('cameraStart').classList.add('camera-active');$('cameraPlayer').replaceChildren();status(zoneMode()?'Identificando zonas (0/6)…':'Cámara lista · selecciona un jugador e inicia el nivel.');loop(token);
  }catch(e){if(token===generation){stopCapture();await closeModels();status('Error: '+e.message);}}finally{loading=false;$('cameraStart').disabled=false;}
 }
 function playerChoices(items){
@@ -71,7 +71,8 @@ async function frame(token){
  }
  fpsFrames++;const elapsed=performance.now()-fpsStart;if(elapsed>=1000){shownFPS=fpsFrames*1000/elapsed;fpsStart=performance.now();fpsFrames=0;}
  $('cameraPerformance').textContent='Procesamiento: '+ms.toFixed(0)+' ms · FPS: '+shownFPS.toFixed(1);
- $('cameraMetrics').textContent=poses.length+' posturas · Cadencia: '+(chosen?.result.rpm==null?'--':chosen.result.rpm.toFixed(0))+' RPM · '+(backend||'MediaPipe');draw();
+ $('cameraCadence').textContent=(chosen?.result.rpm==null?'--':chosen.result.rpm.toFixed(0))+' RPM';$('cameraCadenceLabel').textContent='Cadencia detectada · '+($('cameraPlayer').selectedOptions[0]?.textContent||'jugador seleccionado');
+ $('cameraMetrics').textContent=poses.length+' posturas · '+(backend||'MediaPipe');draw();
 }
 function loop(token){if(token!==generation||!stream)return;raf=requestAnimationFrame(async()=>{raf=null;if(token!==generation)return;busy=true;try{if(!reconfiguring&&video.readyState>=2&&video.videoWidth)await frame(token);}catch(e){status('Error de análisis: '+e.message);stopCapture();}finally{busy=false;}loop(token);});}
 $('cameraStart').onclick=()=>{cameraFeedback($('cameraStart'),'Iniciando cámara…');return start();};
