@@ -50,7 +50,7 @@ test('actual YOLO26 split layout converts normalized xywh to source boxes',async
 
 test('phases are automatic, posture defaults to None and people are the default target',()=>{
  const html=fs.readFileSync(require('node:path').join(__dirname,'../measure.html'),'utf8');
- assert.match(html,/<option value="none" selected>/);assert.match(html,/<option value="person" selected>/);
+ assert.match(html,/<option value="yolo26pose" selected>/);assert.match(html,/<option value="full" selected>/);assert.match(html,/<option value="person" selected>/);
  assert.match(html,/<div hidden aria-hidden="true"><button id="onlyBikes"/);
  assert.doesNotMatch(html,/Capas adicionales|Z1–Z8|hasta ocho/);assert.match(html,/id="maxZones"[^>]*max="64"[^>]*value="32"/);
 });
