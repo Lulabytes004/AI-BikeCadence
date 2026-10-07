@@ -42,3 +42,13 @@ test('YOLO11n-pose is selectable and its raw 56-channel output maps to cadence j
  assert.equal(output.detections.length,1);assert.equal(output.detections[0].keypoints.length,17);
  const lm=cocoLandmarks(output.detections[0].keypoints,640,640);assert.equal(lm[25].x,313/640);assert.ok(Math.abs(lm[25].visibility-.8)<1e-6);
 });
+
+test('full-frame adapter forwards video timestamps and resets tracking on request',async()=>{
+ const {createCropPoseAdapter}=await load('pose-models.js');let timestamp,resets=0;
+ const previous=global.document;global.document={createElement:()=>({getContext:()=>({drawImage(){}})})};
+ try{
+  const adapter=createCropPoseAdapter({detect(input,t){timestamp=t;return [];},resetTracking(){resets++;},close(){}});
+  await adapter.infer({width:640,height:480},1234,[],'full');assert.equal(timestamp,1234);
+  await adapter.resetTracking();assert.equal(resets,1);
+ }finally{global.document=previous;}
+});

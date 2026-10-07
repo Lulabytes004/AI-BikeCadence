@@ -1,4 +1,4 @@
-import {createZoneDetector,downloadModel} from './zone-detectors.js?v=webgpu1';
+import {createZoneDetector,downloadModel} from './zone-detectors.js?v=mptracking1';
 export const POSE_MODELS={
  yolov8pose:{name:'YOLOv8n-pose',yolo:true},
  mediapipe_lite:{name:'MediaPipe Pose Lite',variant:'lite'},
@@ -27,7 +27,7 @@ export function selectCropPose(poses){
  return poses.slice().sort((a,b)=>rank(b)-rank(a))[0];
  function rank(p){const hip=(p[23].x+p[24].x)/2;return Math.min(...[11,12,23,24].map(i=>p[i].visibility??0))-.5*Math.abs(hip-.5);}
 }
-export async function createPoseModel(key,{onProgress=()=>{},maxPoses=32,scope='zones',useWebGPU=false,onBackend=()=>{}}={}){
+export async function createPoseModel(key,{onProgress=()=>{},maxPoses=32,scope='zones',useWebGPU=false,videoTracking=false,onBackend=()=>{}}={}){
  const config=POSE_MODELS[key];if(!config)throw Error('Modelo de postura desconocido.');
  onProgress({stage:'runtime'});
  let backend;
@@ -40,23 +40,24 @@ export async function createPoseModel(key,{onProgress=()=>{},maxPoses=32,scope='
   // IMAGE mode avoids sharing temporal tracking state between different zone crops.
   const bytes=await downloadModel(`https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_${config.variant}/float16/1/pose_landmarker_${config.variant}.task`,onProgress);
   onProgress({stage:'prepare'});
-  const options={baseOptions:{modelAssetBuffer:bytes,delegate:'GPU'},runningMode:'IMAGE',numPoses:scope==='zones'?1:maxPoses,minPoseDetectionConfidence:.5,minPosePresenceConfidence:.5};
+  const tracking=videoTracking&&scope==='full';
+  const options={baseOptions:{modelAssetBuffer:bytes,delegate:'GPU'},runningMode:tracking?'VIDEO':'IMAGE',numPoses:scope==='zones'?1:maxPoses,minPoseDetectionConfidence:.5,minPosePresenceConfidence:.5};
   let model;try{model=await mod.PoseLandmarker.createFromOptions(vision,options);}catch{options.baseOptions.delegate='CPU';model=await mod.PoseLandmarker.createFromOptions(vision,options);}
-  backend={detect:input=>model.detect(input).landmarks??[],close:()=>model.close()};
+  backend={detect:(input,t)=>(tracking?model.detectForVideo(input,t):model.detect(input)).landmarks??[],async resetTracking(){if(tracking){await model.setOptions({runningMode:'IMAGE'});await model.setOptions({runningMode:'VIDEO'});}},close:()=>model.close()};
  }
  return createCropPoseAdapter(backend);
 }
 export function createCropPoseAdapter(backend){
  const crop=document.createElement('canvas'),ctx=crop.getContext('2d');
  return {async infer(input,t,zones,scope){
-  if(scope==='full')return {landmarks:await backend.detect(input),zoneIds:[]};
+  if(scope==='full')return {landmarks:await backend.detect(input,t),zoneIds:[]};
   const landmarks=[],zoneIds=[];
   for(const zone of zones){
    const rect=cropRectangle(zone,input.width,input.height);if(rect.w<2||rect.h<2)continue;
    crop.width=rect.w;crop.height=rect.h;ctx.drawImage(input,rect.x,rect.y,rect.w,rect.h,0,0,rect.w,rect.h);
-   const selected=selectCropPose(await backend.detect(crop));
+   const selected=selectCropPose(await backend.detect(crop,t));
    if(selected){landmarks.push(restoreLandmarks(selected,rect,input.width,input.height));zoneIds.push(zone.id);}
   }
   return {landmarks,zoneIds};
- },close:()=>backend.close()};
+ },resetTracking:()=>backend.resetTracking?.(),close:()=>backend.close()};
 }

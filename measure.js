@@ -1,4 +1,4 @@
-import {MODELS,createZoneDetector} from './zone-detectors.js?v=webgpu1';
+import {MODELS,createZoneDetector} from './zone-detectors.js?v=mptracking1';
 const $=id=>document.getElementById(id),video=$('video'),canvas=$('overlay'),ctx=canvas.getContext('2d');
 const inputCanvas=document.createElement('canvas'),inputCtx=inputCanvas.getContext('2d',{willReadFrequently:true});
 const pixelCanvas=document.createElement('canvas');pixelCanvas.width=96;pixelCanvas.height=54;
@@ -75,7 +75,7 @@ const poseScope=()=>$('poseScope').value||'full';
 const setStatus=text=>$('status').textContent=text;
 function error(e){setStatus('Error');diagnostic=e.message||String(e);$('diag').textContent=diagnostic;console.error(e);}
 const poseName=()=>$('poseModel').selectedOptions?.[0]?.textContent||selectedPoseModel;
-const poseConfig=()=>selectedPoseModel+':'+poseScope()+':'+MAX_CYCLISTS+':'+$('useWebGPU').checked;
+const poseConfig=()=>selectedPoseModel+':'+poseScope()+':'+MAX_CYCLISTS+':'+$('useWebGPU').checked+':'+$('mediaPipeTracking').checked;
 const gpuReports={};
 const gpuOptions=(role='Detector')=>({useWebGPU:$('useWebGPU').checked,onBackend:info=>{gpuReports[role]=info.backend+(info.fallbackReason?' · '+info.fallbackReason:'');$('gpuStatus').textContent=Object.entries(gpuReports).map(([name,text])=>name+': '+text).join(' | ');}});
 function syncAnalysisMode(){
@@ -85,6 +85,7 @@ function syncAnalysisMode(){
 }
 function syncAutomaticPhases(){
  $('layerDetector').checked=true;$('layerZones').checked=true;$('layerCrops').checked=$('detectorTiles').checked;
+ $('mediaPipeTracking').disabled=poseScope()!=='full'||!selectedPoseModel.startsWith('mediapipe_');
  $('layerPose').checked=selectedPoseModel!=='none';$('layerCadence').checked=selectedPoseModel!=='none';
  $('layerStatus').textContent=selectedPoseModel==='none'?'Detector inicial → zonas. Sin postura.':'Detector inicial → zonas → '+poseName()+' → cadencia.';
 }
@@ -111,9 +112,9 @@ async function initPose(){
  modelPromise=(async()=>{
   let createPoseModel=poseFactoryOverride;
   if(!createPoseModel){
-   ({createPoseModel}=await import('./pose-models.js?v=webgpu1'));
+   ({createPoseModel}=await import('./pose-models.js?v=mptracking1'));
   }
-  pose=await createPoseModel(selectedPoseModel,{maxPoses:MAX_CYCLISTS,scope:poseScope(),...gpuOptions('Postura'),onProgress:showPoseProgress});
+  pose=await createPoseModel(selectedPoseModel,{maxPoses:MAX_CYCLISTS,scope:poseScope(),videoTracking:$('mediaPipeTracking').checked,...gpuOptions('Postura'),onProgress:showPoseProgress});
   poseRuntimeConfig=poseConfig();
   $('poseStatus').textContent='✓ LISTO: '+poseName()+' · '+(source?'pulsa 2. Analizar posturas desde el inicio cuando las zonas estén fijadas.':'carga un vídeo o inicia la cámara.');
   return pose;
@@ -301,7 +302,7 @@ function download(name,body,type){const url=URL.createObjectURL(new Blob([body],
 async function seekTo(time,resetHistory=true){
  video.pause();cancelLoop();$('play').textContent='2. Analizar posturas desde el inicio';
  while(frameBusy||zoneBusy)await new Promise(resolve=>setTimeout(resolve,20));
- if(resetHistory)clearData(true);
+ if(resetHistory){clearData(true);await pose?.resetTracking?.();}
  if(Math.abs(video.currentTime-time)>.00001){const done=once(video,'seeked');video.currentTime=time;await done;}
  await processFrame(video.currentTime,true);updateTime();setStatus('Pausa');
 }
@@ -466,6 +467,16 @@ $('poseScope').onchange=async()=>{
   }
   await changeLayers();
  }catch(e){error(e);}
+};
+$('mediaPipeTracking').onchange=()=>{
+ layerChange=layerChange.catch(()=>{}).then(async()=>{
+  video.pause();cancelLoop();$('play').textContent='2. Analizar posturas desde el inicio';$('mediaPipeTracking').disabled=true;
+  try{
+   while(frameBusy||zoneBusy)await new Promise(resolve=>setTimeout(resolve,20));
+   if(modelPromise)await modelPromise;const old=pose;pose=null;poseRuntimeConfig=null;await old?.close();clearData(true);
+   await initPose();if(source&&video.readyState>=2)await processFrame(video.currentTime,true);
+  }catch(e){error(e);}finally{syncAutomaticPhases();}
+ });return layerChange;
 };
 $('useWebGPU').onchange=()=>{
  layerChange=layerChange.catch(()=>{}).then(async()=>{
