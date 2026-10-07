@@ -1,0 +1,50 @@
+AI-BikeCadence — fases automáticas
+Rama: feat/pose-per-zone
+
+En la carpeta del proyecto:
+git switch feat/pose-per-zone
+git pull origin feat/pose-per-zone
+python3 -m http.server 8080
+
+Abre http://localhost:8080/measure.html y recarga con Cmd+Shift+R.
+
+1. Elige el detector inicial. Persona es el objetivo predeterminado.
+2. Elige la postura: Ninguno, MediaPipe Lite/Full/Heavy o YOLO11n-pose/YOLO26n-pose/YOLO26s-pose.
+   Un modelo de postura se carga inmediatamente al seleccionarlo: progreso y estado visibles.
+   Ninguno detecta y confirma zonas sin postura ni cadencia.
+3. Carga un vídeo y pulsa Reproducir.
+   Si faltan zonas confirmadas, toma seis muestras iniciales con el archivo pausado.
+   Después reproduce el archivo, analizando cada zona con la postura seleccionada.
+   Las seis muestras no son un límite de seis personas.
+4. Volver a detectar zonas rehace la detección, conserva la posición del archivo,
+   borra la medición y deja el archivo en pausa. Pulsa Reproducir para continuar.
+   En la cámara, la detección continúa con las imágenes en directo.
+
+No es necesario activar capas manualmente.
+El detector siempre participa en la fase inicial y se detiene al fijar las zonas.
+No se requiere detectar bicicletas: basta Persona -> zona -> postura.
+Máximo de zonas: 32 por defecto, configurable entre 1 y 64.
+Máximo de detecciones es un ajuste independiente del detector; debe permitir
+el número de personas esperado. La salida real depende del modelo y de la imagen.
+Cambiar solo la postura conserva las zonas y reinicia el historial de cadencia.
+Mantén la cámara fija. Si cambia la escena, vuelve a detectar las zonas.
+
+Pruebas automatizadas: reproducción y repetición, carga inmediata de postura,
+Ninguno, 16 zonas de personas y seguimiento de 32 ciclistas con identidades
+independientes. Todavía falta medir el rendimiento real en el navegador del usuario.
+
+Visualización:
+- Mostrar confianza y datos de zonas: confianza del detector al confirmar,
+  posición y tamaño en píxeles, y visibilidad/confianza media de puntos principales.
+- Dibujar postura: puntos y esqueleto del resultado bruto del modelo, sin esperar
+  a la confirmación del seguimiento de cadencia. No desactiva el análisis.
+- Todas las zonas se dibujan con línea continua.
+- La app indica cuántas posturas devuelve el modelo y el tiempo total por fotograma.
+
+Rendimiento:
+La detección inicial usa seis imágenes completas: seis inferencias por defecto.
+La opción Buscar personas pequeñas con recortes adicionales añade cuatro recortes
+por muestra: treinta inferencias. Puede ayudar cuando las personas son pequeñas.
+Cada inferencia del detector devuelve todas las personas que reconoce en esa imagen.
+En Cada zona confirmada, la postura recorta cada zona de la misma imagen y las analiza
+secuencialmente. En Imagen completa, procesa la imagen una vez para varias personas.
