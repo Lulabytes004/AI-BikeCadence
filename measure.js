@@ -17,7 +17,7 @@ function detectorOptions(){
 }
 
 let rawBoxes=[],detectorPoseFrame=-1,detectorPoseLandmarks=[];
-let zoneGeneration=0,zoneBusy=false,selectedModel='original',trainedBytes=null,trainedYoloBytes=null;
+let zoneGeneration=0,zoneBusy=false,selectedModel=$('zoneModel').value||'original',trainedBytes=null,trainedYoloBytes=null;
 async function initZones(){
  if(!layer('layerDetector'))return null;
  if(objectDetector)return objectDetector;if(objectPromise){await objectPromise;return objectDetector||initZones();}
@@ -70,7 +70,7 @@ const colors=['#127fc4','#e77a24','#16875d','#9c4bc7','#cc4268','#078f9c','#9a76
 let pose=null,source=null,blobURL=null,session=0,requestId=null,loadId=0;
 let lastMediaTime=-1,lastModelTimestamp=0,lastInferenceWall=0,lastPixels=null,lastChangeTime=null,frozen=false;
 let records=[],poseRecords=[],modelPromise=null,diagnostic='';
-let selectedPoseModel='none',frameBusy=false,poseRuntimeConfig=null,poseLoading=false,detectorLoading=false,manualScan=false,poseFactoryOverride=null;
+let selectedPoseModel=$('poseModel').value||'none',frameBusy=false,poseRuntimeConfig=null,poseLoading=false,detectorLoading=false,manualScan=false,poseFactoryOverride=null;
 const poseScope=()=>$('poseScope').value||'full';
 const setStatus=text=>$('status').textContent=text;
 function error(e){setStatus('Error');diagnostic=e.message||String(e);$('diag').textContent=diagnostic;console.error(e);}
@@ -478,7 +478,7 @@ function syncModelUI(){
 
  $('objectsHelp').textContent=config.pose?'Este modelo solo reconoce personas.':config.local?'Modelo entrenado: bicicleta y bicicleta de spinning. Todo conserva sus categorías propias.':'Todo muestra las 80 categorías COCO. Persona = 0, bicicleta = 1, moto = 3.';
 }
-syncModelUI();renderReferences();
+syncModelUI();renderReferences();syncAutomaticPhases();
 
 function setModelLoading(busy){
  detectorLoading=busy;const blocked=busy||poseLoading||manualScan;
