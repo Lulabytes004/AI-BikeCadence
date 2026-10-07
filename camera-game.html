@@ -29,6 +29,7 @@
     button.pressed{transform:scale(.96);filter:brightness(1.35)}
     .feedback{margin-top:10px;min-height:22px;font-size:14px;font-weight:700;color:#9be3a5;opacity:0;transition:opacity .15s}
     .feedback.show{opacity:1}
+    .game-feedback{display:none}.game-feedback.show{display:block}.game-feedback + .game-help{margin-top:6px}
     label{display:block;color:#aeb5c1;font-size:13px;margin-bottom:6px}
     .status{font-size:18px;font-weight:700;margin-bottom:6px}
     .note{font-size:13px;color:#aeb5c1;line-height:1.45}
@@ -114,7 +115,7 @@
         <button id="forceFail" class="warn">Simular fallo</button>
         <button id="reset" class="secondary">Reiniciar prueba</button>
       </div>
-      <div id="feedback" class="feedback"></div>
+      <div id="feedback" class="feedback game-feedback"></div>
       <details class="game-help"><summary>Cómo funciona el reto y el botón manual</summary><p class="note"><b>+1 vuelta pedal</b> simula manualmente una revolución completa de la biela. Permite comparar la lógica con las vueltas detectadas por la cámara. Cuando completas las vueltas antes del pitido, la plataforma queda alcanzada y esperas hasta que termine el tiempo del tramo. Si no llegas, se suma un fallo. Al completar un nivel se resta un fallo acumulado: 2→1, 1→0, 0→0.</p></details>
     </section>
 
