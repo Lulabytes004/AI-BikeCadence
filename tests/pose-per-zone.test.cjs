@@ -23,9 +23,9 @@ test('per-zone inference uses separate crops and restores coordinates to the sou
   assert.equal((await model.infer(input,30,[],'full')).landmarks.length,1);assert.deepEqual(sizes,[[1000,600]]);
  }finally{delete global.document;}
 });
-test('YOLO normalized coordinates retain confidence scores',async()=>{
+test('YOLO26 exported points restore coordinates and confidence divided by input size',async()=>{
  const {scaleNormalizedPose,decodeYolo}=await load('zone-detectors.js');
- const data=new Float32Array(57);data.set([.1,.2,.9,.95,.8,0]);for(let i=0;i<17;i++)data.set([.5,.6,.75],6+i*3);
+ const data=new Float32Array(57);data.set([.1,.2,.9,.95,.8,0]);for(let i=0;i<17;i++)data.set([.5,.6,.75/640],6+i*3);
  const scaled=scaleNormalizedPose(data,[1,1,57]);
  assert.equal(scaled[6],320);assert.equal(scaled[8],.75);assert.ok(Math.abs(scaled[4]-.8)<1e-6);
  const output=decodeYolo(scaled,[1,1,57],640,640,640,.25,['person'],{pose:true,classIds:[0]});

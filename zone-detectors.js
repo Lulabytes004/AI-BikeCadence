@@ -103,7 +103,8 @@ export function scaleNormalizedPose(data,dims,size=640){
  const copy=new Float32Array(data);
  for(let i=0;i<dims[1];i++){
   const j=i*57;for(let k=0;k<4;k++)copy[j+k]*=size;
-  for(let k=6;k<57;k+=3){copy[j+k]*=size;copy[j+k+1]*=size;}
+  // This export divides the entire keypoint tensor (x, y, confidence) by input size.
+  for(let k=6;k<57;k++)copy[j+k]*=size;
  }
  return copy;
 }
