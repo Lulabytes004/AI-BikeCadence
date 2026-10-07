@@ -68,7 +68,8 @@ async function frame(token){
   else{const delta=Math.min(20,Math.max(0,cycles-baseline.cycles));baseline.cycles=cycles;for(let i=0;i<delta;i++)window.platformCameraPedal?.();}
  }
  fpsFrames++;const elapsed=performance.now()-fpsStart;if(elapsed>=1000){shownFPS=fpsFrames*1000/elapsed;fpsStart=performance.now();fpsFrames=0;}
- $('cameraMetrics').textContent='Procesamiento: '+ms.toFixed(0)+' ms · FPS de análisis: '+shownFPS.toFixed(1)+' · '+poses.length+' posturas · Cadencia: '+(chosen?.result.rpm==null?'--':chosen.result.rpm.toFixed(0))+' RPM · '+(backend||'MediaPipe');draw();
+ $('cameraPerformance').textContent='Procesamiento: '+ms.toFixed(0)+' ms · FPS: '+shownFPS.toFixed(1);
+ $('cameraMetrics').textContent=poses.length+' posturas · Cadencia: '+(chosen?.result.rpm==null?'--':chosen.result.rpm.toFixed(0))+' RPM · '+(backend||'MediaPipe');draw();
 }
 function loop(token){if(token!==generation||!stream)return;raf=requestAnimationFrame(async()=>{raf=null;if(token!==generation)return;busy=true;try{if(!reconfiguring&&video.readyState>=2&&video.videoWidth)await frame(token);}catch(e){status('Error de análisis: '+e.message);stopCapture();}finally{busy=false;}loop(token);});}
 $('cameraStart').onclick=()=>{cameraFeedback($('cameraStart'),'Iniciando cámara…');return start();};

@@ -39,7 +39,7 @@
     .ok{color:#9be3a5}
     .bad{color:#ff9b9b}
     @media(min-width:640px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}.controls{grid-template-columns:repeat(4,minmax(0,1fr))}}
-   .camera-view{position:relative;background:#080b10;aspect-ratio:16/9;border-radius:12px;overflow:hidden}.camera-view video,.camera-view canvas{position:absolute;width:100%;height:100%;object-fit:contain}.camera-view canvas{pointer-events:none}.camera-options{display:flex;flex-wrap:wrap;gap:12px}.camera-options label{flex:1;min-width:160px}.camera-check{display:flex;align-items:center;gap:10px;line-height:1.45}.camera-check input[type=checkbox]{flex:0 0 18px;width:18px;height:18px;margin:0;padding:0}.camera-metrics{font-variant-numeric:tabular-nums;margin:12px 0;color:#aeb5c1}
+   .camera-view{position:relative;background:#080b10;aspect-ratio:16/9;border-radius:12px;overflow:hidden}.camera-view video,.camera-view canvas{position:absolute;width:100%;height:100%;object-fit:contain}.camera-view canvas{pointer-events:none}.camera-options{display:flex;flex-wrap:wrap;gap:12px}.camera-options label{flex:1;min-width:160px}.camera-check{display:flex;align-items:center;gap:10px;line-height:1.45}.camera-check input[type=checkbox]{flex:0 0 18px;width:18px;height:18px;margin:0;padding:0}.camera-heading{display:flex;align-items:center;justify-content:space-between;gap:8px 16px;flex-wrap:wrap;margin-bottom:12px}.camera-heading h2{margin:0}.camera-performance{font-size:12px;color:#aeb5c1;font-variant-numeric:tabular-nums}.camera-metrics{font-variant-numeric:tabular-nums;margin:12px 0;color:#aeb5c1}
 </style>
 </head>
 <body>
@@ -49,7 +49,7 @@
     <p class="sub">Reto de plataformas en modo texto, controlado por la cadencia de la cámara.</p>
 
     <section class="card">
-<h2>Platform Challenge · cámara</h2>
+<div class="camera-heading"><h2>Platform Challenge · cámara</h2><span id="cameraPerformance" class="camera-performance">Procesamiento: -- ms · FPS: --</span></div>
 <div class="camera-view" id="cameraView"><video id="cameraVideo" autoplay playsinline muted></video><canvas id="cameraOverlay"></canvas></div>
 <div class="camera-options">
 <label>Modelo / modo<select id="cameraModel"><option value="yolo26pose">YOLO26n-pose · imagen completa</option><option value="mediapipe_lite">MediaPipe Lite · imagen completa</option><option value="mediapipe_full">MediaPipe Full · imagen completa</option><option value="mediapipe_zone">MediaPipe Lite · zona del jugador (YOLOv8n inicial)</option></select></label>
@@ -62,7 +62,7 @@
 <p><label class="camera-check"><input type="checkbox" id="cameraSkeleton" checked> Mostrar puntos y esqueleto</label></p>
 <div class="camera-options"><button id="cameraStart">Iniciar cámara</button><button id="cameraStop" disabled>Detener cámara</button><button id="cameraRescan" disabled>Volver a detectar zonas</button></div>
 <p id="cameraStatus" role="status">Abre la cámara, selecciona un jugador y después inicia el nivel.</p>
-<p id="cameraMetrics" class="camera-metrics">Procesamiento: -- ms · FPS de análisis: -- · Cadencia: -- RPM</p>
+<p id="cameraMetrics" class="camera-metrics">Cadencia: -- RPM</p>
 <p class="note">Las vueltas del jugador seleccionado controlan el mismo reto de plataformas. Solo se cuentan ciclos confirmados; el botón manual permanece para comparar. El modo por zonas identifica personas con YOLOv8n y analiza únicamente la zona seleccionada. Cambiar de jugador o modelo reinicia el seguimiento. Para cámara en móvil utiliza HTTPS.</p>
 </section>
 <section class="card">
@@ -331,6 +331,6 @@ render();
 window.platformCameraPedal=()=>{if(running&&!reached&&!disqualified)pedal();};
 </script>
 <script src="./cadence.js"></script><script src="./bike-zones.js"></script>
-<script type="module" src="./camera-game.js?v=2"></script>
+<script type="module" src="./camera-game.js?v=3"></script>
 </body>
 </html>
