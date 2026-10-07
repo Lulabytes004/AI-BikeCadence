@@ -76,7 +76,7 @@
 <p><label><input id="useWebGPU" type="checkbox" role="switch"> Acelerar YOLO con GPU / WebGPU</label></p>
 <p id="gpuStatus" class="help" role="status">YOLO: CPU / WASM seleccionado.</p>
 <p class="help">Afecta al detector YOLO y al modelo YOLO de postura. Al cambiarlo se recargan los motores y se conservan las zonas. WebGPU necesita un navegador y dispositivo compatibles; si falla, se usa CPU automáticamente. En móvil, abre la app mediante HTTPS; una dirección HTTP del Mac en la red local no habilita WebGPU. La primera carga con GPU puede tardar más por la preparación del modelo. MediaPipe mantiene su propio motor.</p>
-<p><label><input id="mediaPipeTracking" type="checkbox" role="switch"> MediaPipe · modo VIDEO con seguimiento</label></p><p class="help">Disponible con MediaPipe e imagen completa. Activado, aprovecha el seguimiento entre fotogramas; desactivado, analiza imágenes independientes. Por zonas se mantiene IMAGE. Cambiarlo pausa el análisis y conserva las zonas. Al iniciar otra pasada del archivo se reinicia el seguimiento.</p>
+<p><label><input id="mediaPipeTracking" type="checkbox" role="switch"> MediaPipe · modo VIDEO con seguimiento</label></p><p id="trackingHelp" class="help" role="status">Solo se aplica a MediaPipe con Imagen completa.</p><p class="help">Disponible con MediaPipe e imagen completa. Activado, aprovecha el seguimiento entre fotogramas; desactivado, analiza imágenes independientes. Por zonas se mantiene IMAGE. Cambiarlo pausa el análisis y conserva las zonas. Al iniciar otra pasada del archivo se reinicia el seguimiento.</p>
 <p id="poseStatus" class="help" role="status" aria-live="polite">YOLO26n-pose seleccionado; se cargará al abrir un vídeo o iniciar la cámara.</p><progress id="poseProgress" hidden style="width:100%"></progress>
 <p class="help">Al seleccionar un modelo de postura se carga automáticamente y se muestra su progreso arriba. Con «Ninguno» se detectan las zonas sin analizar posturas. Con un modelo seleccionado se analiza la postura y se calcula la cadencia.</p>
 <div hidden aria-hidden="true"><button id="onlyBikes">Solo detector</button><button id="allLayers">Todas</button>
@@ -98,5 +98,5 @@
 </details>
 <p class="help">El detector compara rodillas y tobillos y exige movimiento periódico antes de mostrar RPM. Una persona que no se reconoce se muestra sin medición. Los dibujos esquemáticos pueden no ser reconocidos por el modelo de personas.</p>
 </main>
-<script src="./cadence.js?v=mptracking1"></script><script src="./bike-zones.js?v=mptracking1"></script><script src="./measure.js?v=mptracking1" type="module"></script>
+<script src="./cadence.js?v=mptracking2"></script><script src="./bike-zones.js?v=mptracking2"></script><script src="./measure.js?v=mptracking2" type="module"></script>
 </body></html>

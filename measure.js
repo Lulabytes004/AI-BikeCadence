@@ -85,7 +85,8 @@ function syncAnalysisMode(){
 }
 function syncAutomaticPhases(){
  $('layerDetector').checked=true;$('layerZones').checked=true;$('layerCrops').checked=$('detectorTiles').checked;
- $('mediaPipeTracking').disabled=poseScope()!=='full'||!selectedPoseModel.startsWith('mediapipe_');
+ $('mediaPipeTracking').disabled=false;
+ $('trackingHelp').textContent=selectedPoseModel.startsWith('mediapipe_')&&poseScope()==='full'?($('mediaPipeTracking').checked?'Activo: MediaPipe usa VIDEO con seguimiento.':'Desactivado: MediaPipe usa IMAGE.'):'Puedes activar la preferencia; solo se aplica a MediaPipe con Imagen completa. YOLO y el análisis por zonas no cambian.';
  $('layerPose').checked=selectedPoseModel!=='none';$('layerCadence').checked=selectedPoseModel!=='none';
  $('layerStatus').textContent=selectedPoseModel==='none'?'Detector inicial → zonas. Sin postura.':'Detector inicial → zonas → '+poseName()+' → cadencia.';
 }
@@ -469,6 +470,7 @@ $('poseScope').onchange=async()=>{
  }catch(e){error(e);}
 };
 $('mediaPipeTracking').onchange=()=>{
+ if(!selectedPoseModel.startsWith('mediapipe_')||poseScope()!=='full'){syncAutomaticPhases();return Promise.resolve();}
  layerChange=layerChange.catch(()=>{}).then(async()=>{
   video.pause();cancelLoop();$('play').textContent='2. Analizar posturas desde el inicio';$('mediaPipeTracking').disabled=true;
   try{
