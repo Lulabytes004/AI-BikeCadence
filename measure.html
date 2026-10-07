@@ -16,9 +16,9 @@
 <div class="controls">
 <button id="camera" class="primary">Iniciar cámara</button>
 <label class="file-label" for="file">Cargar vídeo</label><input id="file" type="file" accept="video/*,.mp4,.mov,.webm">
-<button id="play" disabled>Analizar posturas desde el inicio</button><button id="step" disabled>+1 fotograma</button><button id="reset">Reiniciar medición</button>
+<button id="step" disabled>+1 fotograma</button>
 </div>
-<div class="controls"><button id="scanZones" disabled>1. Detectar y fijar zonas</button></div>
+<div class="controls"><button id="scanZones" disabled>1. Detectar y fijar zonas</button><button id="play" disabled>2. Analizar posturas desde el inicio</button><button id="reset">Reiniciar medición</button></div>
 <details class="panel" open><summary>Instrucciones · zonas y posturas</summary>
 <ol class="help">
 <li><strong>Detectar y fijar zonas:</strong> analiza seis fotogramas iniciales, guarda las zonas y deja el archivo de vídeo en pausa. Puedes repetirlo si cambia la escena o falta una persona. En cámara, la captura continúa para completar la detección.</li>
@@ -77,5 +77,5 @@
 </details>
 <p class="help">El detector compara rodillas y tobillos y exige movimiento periódico antes de mostrar RPM. Una persona que no se reconoce se muestra sin medición. Los dibujos esquemáticos pueden no ser reconocidos por el modelo de personas.</p>
 </main>
-<script src="./cadence.js?v=v8pose1"></script><script src="./bike-zones.js?v=v8pose1"></script><script src="./measure.js?v=v8pose1" type="module"></script>
+<script src="./cadence.js?v=buttonrows1"></script><script src="./bike-zones.js?v=buttonrows1"></script><script src="./measure.js?v=buttonrows1" type="module"></script>
 </body></html>
