@@ -18,6 +18,17 @@
 <label class="file-label" for="file">Cargar vídeo</label><input id="file" type="file" accept="video/*,.mp4,.mov,.webm">
 <button id="play" disabled>Analizar posturas desde el inicio</button><button id="step" disabled>+1 fotograma</button><button id="reset">Reiniciar medición</button>
 </div>
+<div class="controls"><button id="scanZones" disabled>1. Detectar y fijar zonas</button></div>
+<details class="panel" open><summary>Instrucciones · zonas y posturas</summary>
+<ol class="help">
+<li><strong>Detectar y fijar zonas:</strong> analiza seis fotogramas iniciales, guarda las zonas y deja el archivo de vídeo en pausa. Puedes repetirlo si cambia la escena o falta una persona. En cámara, la captura continúa para completar la detección.</li>
+<li><strong>Analizar posturas desde el inicio:</strong> reproduce el archivo desde 0 segundos usando las zonas ya fijadas, sin repetir la detección inicial. Así puedes analizar completos vídeos de 4–5 segundos. Selecciona un modelo de postura para obtener los puntos corporales.</li>
+</ol>
+<p class="help">Durante la reproducción, el botón de análisis cambia a <strong>Pausar</strong>. Al pulsarlo otra vez desde la pausa comienza una nueva pasada desde 0 y reinicia el historial de medición. Puedes repetir el análisis o cambiar el modelo de postura conservando las zonas.</p>
+<p class="help"><strong>+1 fotograma:</strong> pausa el vídeo, avanza un intervalo según los FPS configurados (por ejemplo, 1/30 de segundo a 30 FPS) y analiza la postura de esa imagen. Es un avance aproximado; permite inspeccionar los puntos paso a paso conservando las zonas y el historial, sin acumular ciclos de cadencia en esa vista previa.</p>
+<p class="help"><strong>Reiniciar medición:</strong> borra el historial de RPM, ciclos y datos registrados y comienza una medición nueva. Conserva las zonas y la posición del vídeo; no vuelve al inicio ni repite la detección de zonas. Si el vídeo se está reproduciendo, continúa.</p>
+<p class="help">Activa <strong>Dibujar postura (puntos y esqueleto)</strong> para ver los puntos que devuelve el modelo. Mantén la cámara fija: las zonas permanecen fijas mientras las posturas se actualizan.</p>
+</details>
 <div id="videoControls" class="panel hidden">
 <div id="fileName" class="help"></div>
 <div class="timeline"><input id="seek" type="range" min="0" max="10" step=".001" value="0" aria-label="Posición del vídeo"><span id="time">0.00 / 0.00 s</span><label>Velocidad <select id="speed"><option value=".25">0,25×</option><option value=".5">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option></select></label></div>
@@ -45,11 +56,10 @@
 <div hidden aria-hidden="true"><button id="onlyBikes">Solo detector</button><button id="allLayers">Todas</button>
 <input id="layerDetector" type="checkbox" checked><input id="layerCrops" type="checkbox"><input id="layerZones" type="checkbox" checked><input id="layerPose" type="checkbox"><input id="layerCadence" type="checkbox" disabled></div>
 <p id="layerStatus" class="help">Detector inicial → zonas. Selecciona una postura para continuar.</p>
-<div class="controls"><button id="scanZones" disabled>Detectar y fijar zonas</button><label><input id="showZones" type="checkbox" checked> Mostrar zonas</label></div>
+<div class="controls"><label><input id="showZones" type="checkbox" checked> Mostrar zonas</label></div>
 <div class="settings"><label><input id="showZoneData" type="checkbox" checked> Mostrar confianza y datos de zonas</label><label><input id="showPose" type="checkbox" checked> Dibujar postura (puntos y esqueleto)</label></div><p class="help">Estos controles solo cambian el dibujo. Detector = confianza al confirmar la zona; Puntos = confianza/visibilidad media de hombros, caderas, rodillas y tobillos.</p><p id="poseResults" class="help" role="status">Los modelos Pose también dibujan sus puntos durante la detección inicial. Selecciona una postura para seguir analizándolos durante la reproducción.</p>
 <div id="zoneStatus" class="help" role="status">Carga un vídeo y pulsa Detectar y fijar zonas.</div>
-<p class="help"><strong>1. Detectar y fijar zonas:</strong> analiza seis fotogramas iniciales y conserva las zonas. Deja el vídeo en pausa.</p>
-<p class="help"><strong>2. Analizar posturas desde el inicio:</strong> reproduce desde 0 usando las zonas ya fijadas, sin repetir el detector. Durante la reproducción permite pausar; al pulsarlo de nuevo comienza otra pasada desde 0. Puedes repetir el análisis con otro modelo de postura. Mantén la cámara fija.</p>
+
 </div>
 <details class="panel"><summary>Comparar detecciones en una imagen</summary>
 <p class="help">Usa el modelo seleccionado arriba. Imagen completa a 640 píxeles, sin recortes ni confirmación de zonas. Solo muestra personas y bicicletas.</p>
