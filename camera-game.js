@@ -9,13 +9,14 @@ let poses=[],backend='';const zones=new globalThis.BikeZones(32),tracks=new glob
 const links=[[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28],[0,2],[0,5],[2,7],[5,8]];
 const zoneMode=()=>$('cameraModel').value==='mediapipe_zone';
 const good=p=>p&&p.visibility>=.3&&Number.isFinite(p.x)&&Number.isFinite(p.y);
+function cameraFeedback(button,text){button.classList.add('pressed');setTimeout(()=>button.classList.remove('pressed'),180);status(text);}
 function status(text){$('cameraStatus').textContent=text;}
 function resetData(){zones.reset();tracks.reset();scanCount=0;lastScan=-Infinity;baseline=null;poses=[];lastPixels=null;lastMotion=performance.now();fpsStart=performance.now();fpsFrames=0;shownFPS=0;}
-function stopCapture(){generation++;if(raf!==null)cancelAnimationFrame(raf);raf=null;stream?.getTracks().forEach(t=>t.stop());stream=null;video.pause();video.srcObject=null;$('cameraStop').disabled=true;$('cameraRescan').disabled=true;}
+function stopCapture(){generation++;if(raf!==null)cancelAnimationFrame(raf);raf=null;stream?.getTracks().forEach(t=>t.stop());stream=null;video.pause();video.srcObject=null;$('cameraStop').disabled=true;$('cameraRescan').disabled=true;$('cameraStart').classList.remove('camera-active');$('cameraStart').textContent='Iniciar cámara';}
 async function closeModels(){const old=model,od=detector;model=null;detector=null;await old?.close();await od?.close();}
 async function deadline(promise,message){let timer;try{return await Promise.race([promise,new Promise((_,reject)=>timer=setTimeout(()=>reject(Error(message)),20000))]);}finally{clearTimeout(timer);}}
 async function start(){
- if(loading)return;loading=true;$('cameraStart').disabled=true;stopCapture();const token=generation;
+ if(loading)return;loading=true;$('cameraStart').disabled=true;stopCapture();const token=generation;$('cameraStart').textContent='Iniciando cámara…';
  try{
   while(busy)await new Promise(r=>setTimeout(r,20));await closeModels();resetData();
   if(!navigator.mediaDevices?.getUserMedia)throw Error('La cámara necesita HTTPS o localhost.');
@@ -32,7 +33,7 @@ async function start(){
    if(token!==generation){await closeModels();return;}
   }
   $('cameraView').style.aspectRatio=`${video.videoWidth}/${video.videoHeight}`;$('cameraStop').disabled=false;$('cameraRescan').disabled=!zoneMode();
-  $('cameraPlayer').replaceChildren();status(zoneMode()?'Identificando zonas (0/6)…':'Cámara lista · selecciona un jugador e inicia el nivel.');loop(token);
+  $('cameraStart').textContent='Cámara activa · reiniciar';$('cameraStart').classList.add('camera-active');$('cameraPlayer').replaceChildren();status(zoneMode()?'Identificando zonas (0/6)…':'Cámara lista · selecciona un jugador e inicia el nivel.');loop(token);
  }catch(e){if(token===generation){stopCapture();await closeModels();status('Error: '+e.message);}}finally{loading=false;$('cameraStart').disabled=false;}
 }
 function playerChoices(items){
@@ -51,7 +52,7 @@ async function frame(token){
  const t=performance.now();input.width=video.videoWidth;input.height=video.videoHeight;ic.drawImage(video,0,0);
  if(zoneMode()&&!zones.locked){
   if(t-lastScan>=650){lastScan=t;const out=await detector.detect(input);if(token!==generation)return;
-   zones.update(out.detections.map(d=>{const b=d.boundingBox;return {label:'person',score:d.categories[0].score,x:b.originX/input.width,y:b.originY/input.height,w:b.width/input.width,h:b.height/input.height};}),t);scanCount++;if(scanCount>=6){zones.lock();playerChoices(zones.zones);status(zones.zones.length+' zonas · selecciona el jugador e inicia el nivel.');}else status('Identificando zonas ('+scanCount+'/6)…');draw();
+   zones.update(out.detections.map(d=>{const b=d.boundingBox;return {label:'person',score:d.categories[0].score,x:b.originX/input.width,y:b.originY/input.height,w:b.width/input.width,h:b.height/input.height};}),t);scanCount++;if(scanCount>=6){zones.lock();$('cameraRescan').textContent='Volver a detectar zonas';playerChoices(zones.zones);status(zones.zones.length+' zonas · selecciona el jugador e inicia el nivel.');}else status('Identificando zonas ('+scanCount+'/6)…');draw();
   }return;
  }
  let result;const selectedZone=zoneMode()?zones.zones.find(z=>String(z.id)===$('cameraPlayer').value):null;
@@ -70,10 +71,10 @@ async function frame(token){
  $('cameraMetrics').textContent='Procesamiento: '+ms.toFixed(0)+' ms · FPS de análisis: '+shownFPS.toFixed(1)+' · '+poses.length+' posturas · Cadencia: '+(chosen?.result.rpm==null?'--':chosen.result.rpm.toFixed(0))+' RPM · '+(backend||'MediaPipe');draw();
 }
 function loop(token){if(token!==generation||!stream)return;raf=requestAnimationFrame(async()=>{raf=null;if(token!==generation)return;busy=true;try{if(!reconfiguring&&video.readyState>=2&&video.videoWidth)await frame(token);}catch(e){status('Error de análisis: '+e.message);stopCapture();}finally{busy=false;}loop(token);});}
-$('cameraStart').onclick=start;
-$('cameraStop').onclick=async()=>{stopCapture();while(busy)await new Promise(r=>setTimeout(r,20));await closeModels();status('Cámara detenida.');};
+$('cameraStart').onclick=()=>{cameraFeedback($('cameraStart'),'Iniciando cámara…');return start();};
+$('cameraStop').onclick=async()=>{cameraFeedback($('cameraStop'),'Deteniendo cámara…');stopCapture();while(busy)await new Promise(r=>setTimeout(r,20));await closeModels();status('Cámara detenida.');};
 for(const id of ['cameraModel','cameraFacing','cameraResolution','cameraGPU','cameraTracking'])$(id).onchange=()=>{if(stream)return start();};
 $('cameraSkeleton').onchange=draw;
 $('cameraPlayer').onchange=async()=>{reconfiguring=true;const token=generation;try{while(busy)await new Promise(r=>setTimeout(r,20));if(token!==generation)return;tracks.reset();baseline=null;await model?.resetTracking?.();}catch(e){status('Error de seguimiento: '+e.message);}finally{reconfiguring=false;}};
-$('cameraRescan').onclick=()=>{if(zoneMode())return start();};
+$('cameraRescan').onclick=async()=>{if(!zoneMode())return;const button=$('cameraRescan');cameraFeedback(button,'Volviendo a detectar zonas…');button.textContent='Detectando zonas…';try{await start();}finally{if(!stream)button.textContent='Volver a detectar zonas';}};
 window.addEventListener('pagehide',stopCapture);
