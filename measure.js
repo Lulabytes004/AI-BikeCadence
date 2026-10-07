@@ -133,11 +133,11 @@ async function startCamera(){
  try{
   if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia)throw new Error('La cámara necesita HTTPS o localhost y permiso de acceso.');
   setStatus('Solicitando cámara…');
-  const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30}},audio:false});
+  const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:$('cameraFacing').value||'environment'},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30}},audio:false});
   if(token!==loadId){stream.getTracks().forEach(t=>t.stop());return;}
   source='camera';video.srcObject=stream;await video.play();await Promise.all([initPose(),initZones()]);
   if(token!==loadId)return;
-  $('scanZones').disabled=false;$('camera').textContent='Detener cámara';$('sourceLabel').textContent='Cámara en directo';setStatus('Buscando ciclistas…');schedule();
+  $('view').style.aspectRatio=`${video.videoWidth}/${video.videoHeight}`;$('play').disabled=false;$('play').textContent='Pausar análisis en directo';$('scanZones').disabled=false;$('camera').textContent='Detener cámara';$('sourceLabel').textContent='Cámara en directo';setStatus('Buscando ciclistas…');schedule();
  }catch(e){if(token===loadId){releaseSource();error(e);}}
 }
 function once(target,event){return new Promise((resolve,reject)=>{
@@ -201,7 +201,7 @@ function processFrame(mediaTime,preview=false){
   const waiting=layer('layerPose')&&poseScope()==='zones'&&!bikeZones.locked;
   setStatus(waiting?'Esperando zonas confirmadas…':!layer('layerCadence')?'Detección sin cálculo de RPM':still?'Imagen quieta':found.length?'Analizando ciclistas…':'No veo una persona');
  };
- const result=layer('layerPose')&&pose?(pose.infer?pose.infer(inputCanvas,lastModelTimestamp,bikeZones.locked?bikeZones.zones:[],poseScope()):pose.detectForVideo(inputCanvas,lastModelTimestamp)):{landmarks:[]};
+ const result=layer('layerPose')&&pose&&(source!=='camera'||bikeZones.locked)?(pose.infer?pose.infer(inputCanvas,lastModelTimestamp,bikeZones.locked?bikeZones.zones:[],poseScope()):pose.detectForVideo(inputCanvas,lastModelTimestamp)):{landmarks:[]};
  if(result?.then){frameBusy=true;return result.then(complete).finally(()=>{frameBusy=false;});}
  complete(result);
 }
@@ -284,10 +284,14 @@ async function seekTo(time,resetHistory=true){
  await processFrame(video.currentTime,true);updateTime();setStatus('Pausa');
 }
 $('camera').onclick=()=>{if(source==='camera'){++loadId;releaseSource();setStatus('Detenido');}else startCamera();};
+$('cameraFacing').onchange=()=>{if(source==='camera')return startCamera();};
 $('file').onchange=()=>{const file=$('file').files[0];if(file)openFile(file);$('file').value='';};
 $('play').onclick=async()=>{
  if(poseLoading||detectorLoading||manualScan)return;
- try{if(!video.paused){video.pause();cancelLoop();$('play').textContent='2. Analizar posturas desde el inicio';setStatus('Pausa · medición conservada');}
+ try{if(source==='camera'){
+  if(!video.paused){video.pause();cancelLoop();$('play').textContent='2. Continuar análisis en directo';setStatus('Análisis en directo pausado');}
+  else{await initPose();await video.play();$('play').textContent='Pausar análisis en directo';schedule();}return;
+ }if(!video.paused){video.pause();cancelLoop();$('play').textContent='2. Analizar posturas desde el inicio';setStatus('Pausa · medición conservada');}
  else{if(!bikeZones.locked||!bikeZones.zones.length){setStatus('Primero pulsa Detectar y fijar zonas.');return;}await initPose();await seekTo(0);lastMediaTime=-1;video.playbackRate=Number($('speed').value);await video.play();$('play').textContent='Pausar';schedule();}}catch(e){error(e);}
 };
 $('step').onclick=async()=>{try{const fps=Math.max(1,Number($('fps').value)||30);await seekTo(Math.min(video.duration,video.currentTime+1/fps),false);}catch(e){error(e);}};
@@ -352,8 +356,8 @@ $('scanZones').onclick=async()=>{
  }catch(e){if(token===loadId){zoneFailure=e.message||String(e);showZoneStatus();}}
  finally{
   manualScan=false;setModelLoading(detectorLoading);$('zoneModel').disabled=false;$('seek').disabled=false;
-  $('scanZones').disabled=!source;$('play').disabled=source!=='file';$('step').disabled=source!=='file';
-  if(source==='camera'&&token===loadId){try{await video.play();schedule();}catch(e){error(e);}}
+  $('scanZones').disabled=!source;$('play').disabled=!source;$('step').disabled=source!=='file';
+  if(source==='camera'&&token===loadId){try{await video.play();$('play').textContent='Pausar análisis en directo';schedule();}catch(e){error(e);}}
   showZoneStatus();draw(lastFound);
  }
 };
@@ -486,7 +490,7 @@ function setModelLoading(busy){
  for(const id of ['zoneModel','layerDetector','layerCrops','layerZones','layerPose','layerCadence','detectorObjects','detectorConfidence','detectorMaxDet','onlyBikes','allLayers','trainedModelFile','poseModel','poseScope','maxZones','detectorTiles'])$(id).disabled=blocked;
  if(!busy)$('layerCadence').disabled=!layer('layerPose');
  $('modelLoadPanel').style.borderColor=busy?'#fbbf24':'#64748b';
- for(const id of ['play','step','scanZones'])$(id).disabled=blocked||!source||(id!=='scanZones'&&source!=='file');
+ for(const id of ['play','step','scanZones'])$(id).disabled=blocked||!source||(id==='step'&&source!=='file');
 }
 function showModelProgress(key,info){
  const name=MODELS[key].name,bar=$('modelProgress');
