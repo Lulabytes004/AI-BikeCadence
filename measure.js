@@ -137,9 +137,10 @@ async function startCamera(){
  try{
   if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia)throw new Error('La cámara necesita HTTPS o localhost y permiso de acceso.');
   setStatus('Solicitando cámara…');
+  const automaticResolution=$('cameraResolution').value==='auto';
   const lowResolution=$('cameraResolution').value==='640x480';
   const cameraWidth=lowResolution?640:1280,cameraHeight=lowResolution?480:720;
-  const request=navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:$('cameraFacing').value||'environment'},width:{ideal:cameraWidth},height:{ideal:cameraHeight},frameRate:{ideal:30}},audio:false});
+  const request=navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:$('cameraFacing').value||'environment'},...(!automaticResolution?{width:{ideal:cameraWidth},height:{ideal:cameraHeight}}:{}),frameRate:{ideal:30}},audio:false});
   let expired=false;request.then(stream=>{if(expired||token!==loadId)stream.getTracks().forEach(t=>t.stop());},()=>{});
   let stream;try{stream=await cameraDeadline(request,'La cámara no respondió. Revisa el permiso de cámara del navegador y que otra aplicación no la esté usando.');}catch(e){expired=true;throw e;}
   if(token!==loadId){stream.getTracks().forEach(t=>t.stop());return;}
@@ -149,7 +150,7 @@ async function startCamera(){
   if(!video.videoWidth)await cameraDeadline(new Promise(resolve=>video.addEventListener('loadeddata',resolve,{once:true})),'La cámara no entregó fotogramas.');
   setStatus('Cámara abierta · cargando modelos…');await Promise.all([initPose(),initZones()]);
   if(token!==loadId)return;
-  $('view').style.aspectRatio=`${video.videoWidth}/${video.videoHeight}`;$('play').disabled=false;$('play').textContent='Pausar análisis en directo';$('scanZones').disabled=false;$('camera').textContent='Detener cámara';$('sourceLabel').textContent='Cámara en directo · '+video.videoWidth+' × '+video.videoHeight+' px (solicitados '+cameraWidth+' × '+cameraHeight+')';setStatus('Buscando ciclistas…');schedule();
+  $('view').style.aspectRatio=`${video.videoWidth}/${video.videoHeight}`;$('play').disabled=false;$('play').textContent='Pausar análisis en directo';$('scanZones').disabled=false;$('camera').textContent='Detener cámara';$('sourceLabel').textContent='Cámara en directo · '+video.videoWidth+' × '+video.videoHeight+' px'+(automaticResolution?' (resolución automática)':' (solicitados '+cameraWidth+' × '+cameraHeight+')');setStatus('Buscando ciclistas…');schedule();
  }catch(e){if(token===loadId){releaseSource();error(e);}}finally{if(token===loadId){cameraRequestPending=false;if(source!=='camera')$('camera').textContent='Iniciar cámara';}}
 }
 function once(target,event){return new Promise((resolve,reject)=>{

@@ -16,7 +16,7 @@
 <div class="controls">
 <button id="camera" class="primary">Iniciar cámara</button>
 <label>Cámara <select id="cameraFacing"><option value="environment">Trasera / predeterminada</option><option value="user">Frontal</option></select></label>
-<label>Resolución <select id="cameraResolution"><option value="640x480" selected>640 × 480 · menor resolución</option><option value="1280x720">1280 × 720 · más detalle</option></select></label>
+<label>Resolución <select id="cameraResolution"><option value="auto" selected>Automática · predeterminada del dispositivo</option><option value="640x480">640 × 480 · menor resolución</option><option value="1280x720">1280 × 720 · más detalle</option></select></label>
 <label class="file-label" for="file">Cargar vídeo</label><input id="file" type="file" accept="video/*,.mp4,.mov,.webm">
 <button id="step" disabled>+1 fotograma</button>
 </div>
@@ -95,5 +95,5 @@
 </details>
 <p class="help">El detector compara rodillas y tobillos y exige movimiento periódico antes de mostrar RPM. Una persona que no se reconoce se muestra sin medición. Los dibujos esquemáticos pueden no ser reconocidos por el modelo de personas.</p>
 </main>
-<script src="./cadence.js?v=cameraclock2"></script><script src="./bike-zones.js?v=cameraclock2"></script><script src="./measure.js?v=cameraclock2" type="module"></script>
+<script src="./cadence.js?v=cameraauto1"></script><script src="./bike-zones.js?v=cameraauto1"></script><script src="./measure.js?v=cameraauto1" type="module"></script>
 </body></html>
