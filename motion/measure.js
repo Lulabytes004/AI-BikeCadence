@@ -1,6 +1,6 @@
 import {MotionMeter} from './motion-meter.js';
 import {MODELS,createZoneDetector} from './zone-detectors.js?v=mptracking1';
-const motionMeter=new MotionMeter();let motionLatest=[],motionChosen='';
+const motionMeters=new Map();let motionLatest=[],motionSelection='all';const motionIds=new Set();
 const $=id=>document.getElementById(id),video=$('video'),canvas=$('overlay'),ctx=canvas.getContext('2d');
 const inputCanvas=document.createElement('canvas'),inputCtx=inputCanvas.getContext('2d',{willReadFrequently:true});
 const pixelCanvas=document.createElement('canvas');pixelCanvas.width=96;pixelCanvas.height=54;
@@ -555,16 +555,22 @@ function showModelProgress(key,info){
 }
 
 
-function motionReset(){motionMeter.reset();motionLatest=[];if($('motionResult'))$('motionResult').textContent='Esperando caderas visibles.';}
+function motionReset(){motionMeters.clear();motionLatest=[];if($('motionResult'))$('motionResult').textContent='Esperando caderas visibles.';}
 function motionUpdate(found,t){
- motionLatest=found;const select=$('motionPlayer'),old=select.value;
- const ids=found.filter(p=>p.lm).map(p=>String(p.id));
- if([...select.options].map(o=>o.value).join(',')!==ids.join(',')){select.replaceChildren(...ids.map(id=>{const o=document.createElement('option');o.value=id;o.textContent='Ciclista '+id;return o;}));select.value=ids.includes(old)?old:(ids[0]||'');}
- if(motionChosen!==select.value){motionChosen=select.value;motionMeter.reset();}
- const person=found.find(p=>String(p.id)===select.value),result=motionMeter.update(person?.lm,t,Number($('motionTolerance').value)||5);
- if(!result){$('motionResult').textContent='Sin puntos fiables: esperando caderas visibles.';return;}
- $('motionResult').textContent=`Ciclista ${select.value} · Desplazamiento: ${result.dx.toFixed(1)} % de imagen · ${result.direction}`;
- if($('motionDraw').checked){ctx.save();ctx.strokeStyle='#ffd166';ctx.lineWidth=3;ctx.setLineDash([6,4]);ctx.beginPath();ctx.moveTo(result.reference.x*canvas.width,0);ctx.lineTo(result.reference.x*canvas.width,canvas.height);ctx.stroke();ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(result.reference.x*canvas.width,result.hip.y*canvas.height);ctx.lineTo(result.hip.x*canvas.width,result.hip.y*canvas.height);ctx.stroke();ctx.fillStyle='#ffd166';ctx.beginPath();ctx.arc(result.hip.x*canvas.width,result.hip.y*canvas.height,6,0,Math.PI*2);ctx.fill();ctx.restore();}
+ motionLatest=found;const select=$('motionPlayer');
+ for(const p of found)if(p.lm)motionIds.add(String(p.id));
+ const ids=[...motionIds].sort((a,b)=>Number(a)-Number(b));
+ const values=['all',...ids];
+ if([...select.options].map(o=>o.value).join(',')!==values.join(',')){select.replaceChildren(...values.map(id=>{const o=document.createElement('option');o.value=id;o.textContent=id==='all'?'Todos los ciclistas':'Ciclista '+id;return o;}));}
+ select.value=motionSelection;
+ const selected=motionSelection==='all'?found:found.filter(p=>String(p.id)===motionSelection),rows=[];
+ for(const person of selected){
+  let meter=motionMeters.get(person.id);if(!meter){meter=new MotionMeter();motionMeters.set(person.id,meter);}
+  const result=meter.update(person.lm,t,Number($('motionTolerance').value)||5);
+  rows.push(`Ciclista ${person.id} · `+(result?`Desplazamiento: ${result.dx.toFixed(1)} % de imagen · ${result.direction}`:'Sin puntos fiables'));
+  if(result&&$('motionDraw').checked){ctx.save();ctx.strokeStyle=colors[(person.id-1)%colors.length];ctx.lineWidth=3;ctx.setLineDash([6,4]);ctx.beginPath();ctx.moveTo(result.reference.x*canvas.width,0);ctx.lineTo(result.reference.x*canvas.width,canvas.height);ctx.stroke();ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(result.reference.x*canvas.width,result.hip.y*canvas.height);ctx.lineTo(result.hip.x*canvas.width,result.hip.y*canvas.height);ctx.stroke();ctx.fillStyle=ctx.strokeStyle;ctx.beginPath();ctx.arc(result.hip.x*canvas.width,result.hip.y*canvas.height,6,0,Math.PI*2);ctx.fill();ctx.restore();}
+ }
+ $('motionResult').textContent=rows.join('\n')||(motionSelection==='all'?'Esperando caderas visibles.':'Esperando al ciclista '+motionSelection+'; se conserva tu selección.');
 }
-$('motionCalibrate').onclick=()=>{motionMeter.reset();motionUpdate(motionLatest,lastModelTimestamp);};
-$('motionPlayer').onchange=()=>{motionMeter.reset();};
+$('motionCalibrate').onclick=()=>{if(motionSelection==='all')motionMeters.clear();else motionMeters.delete(Number(motionSelection));motionUpdate(motionLatest,lastModelTimestamp);};
+$('motionPlayer').onchange=()=>{motionSelection=$('motionPlayer').value;};
