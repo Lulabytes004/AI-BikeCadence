@@ -34,6 +34,14 @@
 <div class="timeline"><input id="seek" type="range" min="0" max="10" step=".001" value="0" aria-label="Posición del vídeo"><span id="time">0.00 / 0.00 s</span><label>Velocidad <select id="speed"><option value=".25">0,25×</option><option value=".5">0,5×</option><option value="1" selected>1×</option><option value="2">2×</option></select></label></div>
 <p class="help">La cadencia utiliza el tiempo del archivo: cambiar la velocidad de reproducción no cambia las RPM. Pausar conserva la última medición; buscar otra posición reinicia el historial.</p>
 </div>
+<section class="panel"><h3>Opciones de visualización</h3>
+<div class="settings" style="flex-wrap:nowrap;overflow-x:auto"><label style="white-space:nowrap"><input id="showZones" type="checkbox" checked> Mostrar zonas</label><label style="white-space:nowrap"><input id="showZoneData" type="checkbox" checked> Mostrar confianza y datos de zonas</label><label style="white-space:nowrap"><input id="showPose" type="checkbox" checked> Dibujar postura (puntos y esqueleto)</label></div><p class="help">Estos controles solo cambian el dibujo. Detector = confianza al confirmar la zona; Puntos = confianza/visibilidad media de hombros, caderas, rodillas y tobillos.</p><details class="panel"><summary>Comparar detecciones en una imagen</summary>
+<p class="help">Usa el modelo seleccionado en la configuración del detector inicial. Imagen completa a 640 píxeles, sin recortes ni confirmación de zonas. Solo muestra personas y bicicletas.</p>
+<label class="file-label" for="compareImage">Cargar imagen de prueba</label><input id="compareImage" type="file" accept="image/*"><label>Confianza mínima <input id="compareConfidence" type="number" min="0.01" max="1" step="0.01" value="0.25"></label>
+<button id="compareRun">Analizar imagen</button><p id="compareStatus">Selecciona la misma imagen que usaste en Colab.</p>
+<canvas id="compareCanvas" style="position:relative;width:100%;max-width:100%;height:auto"></canvas>
+</details>
+</section>
 <div class="panel">
 <h3>1. Configuración del detector inicial de zonas</h3><div class="settings"><label>Modelo <select id="zoneModel"><optgroup label="EfficientDet"><option value="original">EfficientDet-Lite0 · 4,4 MiB · .tflite INT8 · 37 ms ref. Pixel 4</option><option value="lite1">EfficientDet-Lite1 · 5,8 MiB · .tflite INT8 · 49 ms ref. Pixel 4</option><option value="lite2">EfficientDet-Lite2 · 7,2 MiB · .tflite INT8 · 69 ms ref. Pixel 4</option><option value="lite3">EfficientDet-Lite3 · 11,4 MiB · .tflite INT8 · 116 ms ref. Pixel 4</option><option value="lite4">EfficientDet-Lite4 · 19,9 MiB · .tflite INT8 · 260 ms ref. Pixel 4</option><option value="trained">EfficientDet entrenado · tamaño según archivo · .tflite (según archivo) · tiempo sin medir</option></optgroup><optgroup label="YOLOv8"><option value="yolov8n">YOLOv8n · .pt: 6,2 MB · app ONNX: 12,2 MiB · 80,4 ms ref. CPU ONNX</option><option value="yolov8m">YOLOv8m · .pt: 52 MB · app ONNX: 99,0 MiB · 234,7 ms ref. CPU ONNX</option></optgroup><optgroup label="YOLO11"><option value="yolo">YOLO11n · 10,2 MiB · .onnx · 56,1 ms ref. CPU ONNX</option><option value="yolo_s">YOLO11s · 36,3 MiB · .onnx · 90 ms ref. CPU ONNX</option><option value="yolo11pose">YOLO11n-pose · personas · 11,3 MiB · .onnx · 52,4 ms ref. CPU ONNX</option><option value="yolo_trained">YOLO11 entrenado · tamaño según archivo · .onnx · tiempo sin medir</option></optgroup><optgroup label="YOLO26"><option value="yolo26n">YOLO26n · 9,4 MiB · .onnx · 38,9 ms ref. CPU ONNX</option><option value="yolo26s">YOLO26s · 36,5 MiB · .onnx · 87,2 ms ref. CPU ONNX</option><option value="yolo26pose">YOLO26n-pose · personas · 11,5 MiB · .onnx · 40,3 ms ref. CPU ONNX</option><option value="yolo26spose">YOLO26s-pose · personas · 39,9 MiB · .onnx · 85,3 ms ref. CPU ONNX</option></optgroup></select></label></div>
 <div id="modelLoadPanel" style="padding:12px;border:1px solid #64748b;border-radius:8px;margin:12px 0"><strong id="modelStatus" role="status" aria-live="polite">Modelo seleccionado. Se cargará al abrir un vídeo o iniciar la cámara.</strong><progress id="modelProgress" hidden style="display:block;width:100%;margin-top:8px"></progress></div>
@@ -66,15 +74,7 @@
 <input id="layerDetector" type="checkbox" checked><input id="layerCrops" type="checkbox"><input id="layerZones" type="checkbox" checked><input id="layerPose" type="checkbox"><input id="layerCadence" type="checkbox" disabled></div>
 <p id="layerStatus" class="help">Detector inicial → zonas. Selecciona una postura para continuar.</p>
 </div>
-<section class="panel"><h3>3. Opciones de visualización</h3>
-<div class="controls"><label><input id="showZones" type="checkbox" checked> Mostrar zonas</label></div>
-<div class="settings"><label><input id="showZoneData" type="checkbox" checked> Mostrar confianza y datos de zonas</label><label><input id="showPose" type="checkbox" checked> Dibujar postura (puntos y esqueleto)</label></div><p class="help">Estos controles solo cambian el dibujo. Detector = confianza al confirmar la zona; Puntos = confianza/visibilidad media de hombros, caderas, rodillas y tobillos.</p><details class="panel"><summary>Comparar detecciones en una imagen</summary>
-<p class="help">Usa el modelo seleccionado arriba. Imagen completa a 640 píxeles, sin recortes ni confirmación de zonas. Solo muestra personas y bicicletas.</p>
-<label class="file-label" for="compareImage">Cargar imagen de prueba</label><input id="compareImage" type="file" accept="image/*"><label>Confianza mínima <input id="compareConfidence" type="number" min="0.01" max="1" step="0.01" value="0.25"></label>
-<button id="compareRun">Analizar imagen</button><p id="compareStatus">Selecciona la misma imagen que usaste en Colab.</p>
-<canvas id="compareCanvas" style="position:relative;width:100%;max-width:100%;height:auto"></canvas>
-</details>
-</section>
+
 <section class="panel"><h3>Resultados de detección</h3>
 <div id="zoneStatus" class="help" role="status">Carga un vídeo y pulsa Detectar y fijar zonas.</div>
 <p id="poseResults" class="help" role="status">Los modelos Pose también dibujan sus puntos durante la detección inicial. Selecciona una postura para seguir analizándolos durante la reproducción.</p>
