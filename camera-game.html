@@ -18,6 +18,7 @@
     .metric span{display:block;color:#aeb5c1;font-size:12px;margin-bottom:4px}
     .metric strong{font-size:24px}
     .metric strong span{display:inline;color:inherit;font-size:inherit;margin:0}
+    .session-totals{grid-column:1 / -1;display:flex;gap:24px;align-items:flex-start}.session-totals .metric{flex:1;min-width:0}
     .big strong{font-size:36px}
     .controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
     button,select,input{width:100%;border:0;border-radius:12px;padding:13px;font-size:16px}
@@ -71,7 +72,7 @@
         <div class="metric big"><span>RPM objetivo</span><strong id="targetRpm">50</strong></div>
         <div class="metric"><span>PLATAFORMA ACTUAL / PLATAFORMAS DEL NIVEL</span><strong id="platform">1 / 6</strong></div>
         <div class="metric"><span>Fallos</span><strong id="failures">0 / 3</strong><div class="errors" id="errorDots"></div></div>
-        <div class="metric big"><span>Tiempo total</span><strong id="elapsedTime">00:00</strong></div>
+        <div class="session-totals"><div class="metric big"><span>Tiempo total</span><strong id="elapsedTime">00:00</strong></div><div class="metric big"><span>Vueltas totales</span><strong id="sessionRevs">0</strong></div></div>
       </div>
     </section>
 
@@ -80,7 +81,6 @@
         <div class="metric"><span>Vueltas: Realizadas / Requeridas por plataforma</span><strong id="currentRevs">0 / 10</strong></div>
         <div class="metric"><span>Tiempo restante / tiempo de plataforma</span><strong><span id="remaining">12.00 s</span> / <span id="platformTime">12.00 s</span></strong></div>
         <div class="metric"><span>Vueltas nivel</span><strong id="levelRevs">0 / 60</strong></div>
-        <div class="metric"><span>Vueltas totales</span><strong id="sessionRevs">0</strong></div>
         <div class="metric"><span>Duración teórica nivel</span><strong id="levelDuration">72.0 s</strong></div>
         <div class="metric"><span>Estado</span><strong id="stateText">Preparado</strong></div>
       </div>
