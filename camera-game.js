@@ -8,6 +8,8 @@ let stream=null,model=null,detector=null,generation=0,busy=false,loading=false,r
 let poses=[],backend='';const zones=new globalThis.BikeZones(32),tracks=new globalThis.PoseTracks(32);
 const links=[[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28],[0,2],[0,5],[2,7],[5,8]];
 const zoneMode=()=>$('cameraModel').value==='mediapipe_zone';
+function syncAcceleration(){const applicable=$('cameraModel').value==='yolo26pose'||zoneMode();$('cameraGPU').disabled=!applicable;$('cameraGPU').closest('label').classList.toggle('camera-unavailable',!applicable);}
+syncAcceleration();
 const good=p=>p&&p.visibility>=.3&&Number.isFinite(p.x)&&Number.isFinite(p.y);
 function cameraFeedback(button,text){button.classList.add('pressed');setTimeout(()=>button.classList.remove('pressed'),180);status(text);}
 function status(text){$('cameraStatus').textContent=text;}
@@ -74,7 +76,7 @@ async function frame(token){
 function loop(token){if(token!==generation||!stream)return;raf=requestAnimationFrame(async()=>{raf=null;if(token!==generation)return;busy=true;try{if(!reconfiguring&&video.readyState>=2&&video.videoWidth)await frame(token);}catch(e){status('Error de análisis: '+e.message);stopCapture();}finally{busy=false;}loop(token);});}
 $('cameraStart').onclick=()=>{cameraFeedback($('cameraStart'),'Iniciando cámara…');return start();};
 $('cameraStop').onclick=async()=>{cameraFeedback($('cameraStop'),'Deteniendo cámara…');stopCapture();while(busy)await new Promise(r=>setTimeout(r,20));await closeModels();status('Cámara detenida.');};
-for(const id of ['cameraModel','cameraFacing','cameraResolution','cameraGPU','cameraTracking'])$(id).onchange=()=>{if(stream)return start();};
+for(const id of ['cameraModel','cameraFacing','cameraResolution','cameraGPU','cameraTracking'])$(id).onchange=()=>{syncAcceleration();if(stream)return start();};
 $('cameraSkeleton').onchange=draw;
 $('cameraPlayer').onchange=async()=>{reconfiguring=true;const token=generation;try{while(busy)await new Promise(r=>setTimeout(r,20));if(token!==generation)return;tracks.reset();baseline=null;await model?.resetTracking?.();}catch(e){status('Error de seguimiento: '+e.message);}finally{reconfiguring=false;}};
 $('cameraRescan').onclick=async()=>{if(!zoneMode())return;const button=$('cameraRescan');cameraFeedback(button,'Volviendo a detectar zonas…');button.textContent='Detectando zonas…';try{await start();}finally{if(!stream)button.textContent='Volver a detectar zonas';}};
