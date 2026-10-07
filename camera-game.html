@@ -62,7 +62,7 @@
 <p><label class="camera-check"><input type="checkbox" id="cameraGPU" checked> YOLO · aceleración WebGPU (CPU si no está disponible)</label></p>
 <p><label class="camera-check"><input type="checkbox" id="cameraTracking"> MediaPipe · VIDEO con seguimiento (apagado = IMAGE)</label></p>
 <p><label class="camera-check"><input type="checkbox" id="cameraSkeleton" checked> Mostrar puntos y esqueleto</label></p>
-<div class="camera-actions"><div class="camera-start-stop"><button id="cameraStart">Iniciar cámara</button><button id="cameraStop" disabled>Detener cámara</button></div><button id="cameraRescan" disabled>Volver a detectar zonas</button></div>
+<div class="camera-actions"><div class="camera-start-stop"><button id="cameraStart">Iniciar cámara</button><button id="cameraStop" disabled>Detener cámara</button></div><button id="cameraRescan" hidden disabled>Volver a detectar zonas</button></div>
 <p id="cameraStatus" role="status">Abre la cámara, selecciona un jugador y después inicia el nivel.</p>
 <p id="cameraMetrics" class="camera-metrics">Cadencia: -- RPM</p>
 <p class="note">Las vueltas del jugador seleccionado controlan el mismo reto de plataformas. Solo se cuentan ciclos confirmados; el botón manual permanece para comparar. El modo por zonas identifica personas con YOLOv8n y analiza únicamente la zona seleccionada. Cambiar de jugador o modelo reinicia el seguimiento. Para cámara en móvil utiliza HTTPS.</p>
@@ -332,6 +332,6 @@ render();
 window.platformCameraPedal=()=>{if(running&&!reached&&!disqualified)pedal();};
 </script>
 <script src="./cadence.js"></script><script src="./bike-zones.js"></script>
-<script type="module" src="./camera-game.js?v=5"></script>
+<script type="module" src="./camera-game.js?v=6"></script>
 </body>
 </html>
