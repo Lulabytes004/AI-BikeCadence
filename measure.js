@@ -67,7 +67,7 @@ function showZoneStatus(){
 }
 
 const colors=['#127fc4','#e77a24','#16875d','#9c4bc7','#cc4268','#078f9c','#9a7626','#475bd0'];
-let pose=null,source=null,blobURL=null,session=0,requestId=null,loadId=0;
+let pose=null,source=null,blobURL=null,session=0,requestId=null,requestUsesVideoFrame=false,loadId=0;
 let lastMediaTime=-1,lastModelTimestamp=0,lastInferenceWall=0,lastPixels=null,lastChangeTime=null,frozen=false;
 let records=[],poseRecords=[],modelPromise=null,diagnostic='';
 let selectedPoseModel=$('poseModel').value||'none',frameBusy=false,poseRuntimeConfig=null,poseLoading=false,detectorLoading=false,manualScan=false,poseFactoryOverride=null;
@@ -122,7 +122,7 @@ function clearData(preserveZones=false){
  $('freeze').checked=false;frozen=false;
  draw([]);render([]);diagnostic='Historial reiniciado.';$('diag').textContent=diagnostic;
 }
-function cancelLoop(){session++;if(requestId!==null){if(video.cancelVideoFrameCallback)video.cancelVideoFrameCallback(requestId);else cancelAnimationFrame(requestId);}requestId=null;}
+function cancelLoop(){session++;if(requestId!==null){if(requestUsesVideoFrame&&video.cancelVideoFrameCallback)video.cancelVideoFrameCallback(requestId);else cancelAnimationFrame(requestId);}requestId=null;}
 function releaseSource(){
  cancelLoop();video.pause();video.srcObject?.getTracks().forEach(t=>t.stop());video.srcObject=null;video.removeAttribute('src');video.load();
  if(blobURL){URL.revokeObjectURL(blobURL);blobURL=null;}
@@ -180,7 +180,9 @@ function schedule(){
   try{if(source==='file'||performance.now()-lastInferenceWall>=45)await processFrame(mediaTime);}catch(e){cancelLoop();video.pause();error(e);return;}
   schedule();
  };
- requestId=video.requestVideoFrameCallback?video.requestVideoFrameCallback(callback):requestAnimationFrame(callback);
+ // Camera streams can stall media-time callbacks on mobile Safari.
+ requestUsesVideoFrame=source==='file'&&!!video.requestVideoFrameCallback;
+ requestId=requestUsesVideoFrame?video.requestVideoFrameCallback(callback):requestAnimationFrame(callback);
 }
 function sourcePixels(){
  if(!frozen){inputCanvas.width=video.videoWidth;inputCanvas.height=video.videoHeight;inputCtx.drawImage(video,0,0);}
@@ -194,6 +196,8 @@ function stationaryPixels(pixels,t){
  return t-lastChangeTime>=650;
 }
 function processFrame(mediaTime,preview=false){
+ // Live capture uses a monotonic clock; file cadence keeps the original media clock.
+ if(source==='camera')mediaTime=performance.now()/1000;
  if(frameBusy || video.readyState<2 || video.seeking || mediaTime===lastMediaTime)return;
  if(mediaTime<lastMediaTime)clearData(true);
  const mediaDelta=lastMediaTime<0?1:Math.max(.01,(mediaTime-lastMediaTime)*1000);
@@ -364,7 +368,7 @@ $('scanZones').onclick=async()=>{
     });detectorPoseFrame=position;
    }
    updateTime();setStatus(zoneFailure?'Error al analizar zonas':'Zonas y vista previa analizadas · pulsa 2. Analizar posturas desde el inicio');
-  }else if(source&&video.readyState>=2){sourcePixels();await scanZones(video.currentTime*1000);setStatus('Buscando zonas en la cámara…');}
+  }else if(source&&video.readyState>=2){sourcePixels();await scanZones(performance.now());setStatus('Buscando zonas en la cámara…');}
  }catch(e){if(token===loadId){zoneFailure=e.message||String(e);showZoneStatus();}}
  finally{
   manualScan=false;setModelLoading(detectorLoading);$('zoneModel').disabled=false;$('seek').disabled=false;
