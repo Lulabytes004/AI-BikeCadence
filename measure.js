@@ -128,17 +128,27 @@ function releaseSource(){
  if(blobURL){URL.revokeObjectURL(blobURL);blobURL=null;}
  source=null;clearData();$('scanZones').disabled=true;$('camera').textContent='Iniciar cámara';$('play').disabled=true;$('step').disabled=true;$('videoControls').classList.add('hidden');
 }
+let cameraRequestPending=false;
+async function cameraDeadline(promise,message,ms=15000){
+ let timer;try{return await Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(message)),ms);})]);}finally{clearTimeout(timer);}
+}
 async function startCamera(){
- const token=++loadId;releaseSource();
+ const token=++loadId;releaseSource();cameraRequestPending=true;$('camera').textContent='Cancelar apertura de cámara';
  try{
   if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia)throw new Error('La cámara necesita HTTPS o localhost y permiso de acceso.');
   setStatus('Solicitando cámara…');
-  const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:$('cameraFacing').value||'environment'},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30}},audio:false});
+  const request=navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:$('cameraFacing').value||'environment'},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30}},audio:false});
+  let expired=false;request.then(stream=>{if(expired||token!==loadId)stream.getTracks().forEach(t=>t.stop());},()=>{});
+  let stream;try{stream=await cameraDeadline(request,'La cámara no respondió. Revisa el permiso de cámara del navegador y que otra aplicación no la esté usando.');}catch(e){expired=true;throw e;}
   if(token!==loadId){stream.getTracks().forEach(t=>t.stop());return;}
-  source='camera';video.srcObject=stream;await video.play();await Promise.all([initPose(),initZones()]);
+  source='camera';setStatus('Abriendo imagen de cámara…');video.srcObject=stream;
+  await cameraDeadline(video.play(),'La cámara concedió acceso, pero no empezó a reproducir la imagen.');
+  if(token!==loadId)return;
+  if(!video.videoWidth)await cameraDeadline(new Promise(resolve=>video.addEventListener('loadeddata',resolve,{once:true})),'La cámara no entregó fotogramas.');
+  setStatus('Cámara abierta · cargando modelos…');await Promise.all([initPose(),initZones()]);
   if(token!==loadId)return;
   $('view').style.aspectRatio=`${video.videoWidth}/${video.videoHeight}`;$('play').disabled=false;$('play').textContent='Pausar análisis en directo';$('scanZones').disabled=false;$('camera').textContent='Detener cámara';$('sourceLabel').textContent='Cámara en directo';setStatus('Buscando ciclistas…');schedule();
- }catch(e){if(token===loadId){releaseSource();error(e);}}
+ }catch(e){if(token===loadId){releaseSource();error(e);}}finally{if(token===loadId){cameraRequestPending=false;if(source!=='camera')$('camera').textContent='Iniciar cámara';}}
 }
 function once(target,event){return new Promise((resolve,reject)=>{
  const success=()=>{cleanup();resolve();},fail=()=>{cleanup();reject(new Error('No se pudo abrir el vídeo. Prueba un MP4 H.264.'));};
@@ -283,7 +293,7 @@ async function seekTo(time,resetHistory=true){
  if(Math.abs(video.currentTime-time)>.00001){const done=once(video,'seeked');video.currentTime=time;await done;}
  await processFrame(video.currentTime,true);updateTime();setStatus('Pausa');
 }
-$('camera').onclick=()=>{if(source==='camera'){++loadId;releaseSource();setStatus('Detenido');}else startCamera();};
+$('camera').onclick=()=>{if(cameraRequestPending){++loadId;cameraRequestPending=false;releaseSource();setStatus('Apertura de cámara cancelada');return;}if(source==='camera'){++loadId;releaseSource();setStatus('Detenido');}else startCamera();};
 $('cameraFacing').onchange=()=>{if(source==='camera')return startCamera();};
 $('file').onchange=()=>{const file=$('file').files[0];if(file)openFile(file);$('file').value='';};
 $('play').onclick=async()=>{
