@@ -47,7 +47,14 @@
 <label>Objetos <select id="detectorObjects"><option value="all">Todo (sin filtro)</option><option value="person" selected>Persona</option><option value="bicycle">Bicicleta</option><option value="motorcycle">Moto (motorcycle)</option></select></label>
 <label>Confianza <input id="detectorConfidence" type="number" min="0.01" max="1" step="0.01" value="0.25"></label>
 <label>Límite de personas por imagen <input id="detectorMaxDet" type="number" min="1" max="300" value="50" style="width:75px"></label>
-<label>Límite de zonas confirmadas <input id="maxZones" type="number" min="1" max="64" value="32" style="width:75px"></label></div><p><label><input id="detectorTiles" type="checkbox"> Buscar personas pequeñas con recortes adicionales (más lento)</label></p><p class="help">El límite por imagen restringe las detecciones devueltas en cada análisis. El límite de zonas restringe las áreas confirmadas entre las seis muestras; ninguno indica cuántas personas se han encontrado.</p><p id="objectsHelp" class="help">Todo muestra las 80 categorías COCO. Las opciones se adaptan al modelo.</p>
+<label>Límite de zonas confirmadas <input id="maxZones" type="number" min="1" max="64" value="32" style="width:75px"></label></div><p><label><input id="detectorTiles" type="checkbox"> Buscar personas pequeñas con recortes adicionales (más lento)</label></p><details><summary>Aclaración · límites de personas, zonas y categorías COCO</summary>
+<p class="help">Si cada persona corresponde a una zona, ambos límites <strong>podrían ser iguales</strong>. La diferencia está en cuándo se aplican:</p>
+<ul class="help"><li><strong>Límite de personas por imagen (50):</strong> el detector puede devolver hasta 50 personas en <strong>cada fotograma</strong> analizado.</li><li><strong>Límite de zonas confirmadas (32):</strong> tras comparar las seis muestras, la app conserva como máximo 32 zonas para analizar las posturas.</li></ul>
+<p class="help">Por ejemplo, si detecta <strong>40 personas de forma consistente</strong>, el primer límite permite encontrarlas, pero el segundo solo permite conservar <strong>32 zonas</strong>. Si encuentra 12, ambos límites permiten conservar esas 12. Estos números ilustran los valores iniciales; puedes cambiarlos arriba.</p>
+<p class="help">El límite por imagen restringe las detecciones devueltas en cada análisis. El límite de zonas restringe las áreas confirmadas entre las seis muestras; ninguno indica cuántas personas se han encontrado.</p>
+<p class="help">Todo muestra las 80 categorías COCO. Persona = 0, bicicleta = 1, moto = 3. Estas categorías corresponden a los detectores COCO; los modelos Pose solo reconocen personas.</p>
+<p id="objectsHelp" class="help">Las opciones se adaptan al modelo.</p>
+</details>
 <h3>3. Modelo de postura</h3>
 <div class="settings"><label>Postura <select id="poseModel"><option value="none" selected>Ninguno · solo detectar zonas</option>
 <optgroup label="MediaPipe"><option value="mediapipe_lite">MediaPipe Pose Lite</option><option value="mediapipe_full">MediaPipe Pose Full</option><option value="mediapipe_heavy">MediaPipe Pose Heavy</option></optgroup>
