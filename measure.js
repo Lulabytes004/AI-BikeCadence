@@ -1,4 +1,4 @@
-import {MODELS,createZoneDetector} from './zone-detectors.js?v=poseconfidence2';
+import {MODELS,createZoneDetector} from './zone-detectors.js?v=webgpu1';
 const $=id=>document.getElementById(id),video=$('video'),canvas=$('overlay'),ctx=canvas.getContext('2d');
 const inputCanvas=document.createElement('canvas'),inputCtx=inputCanvas.getContext('2d',{willReadFrequently:true});
 const pixelCanvas=document.createElement('canvas');pixelCanvas.width=96;pixelCanvas.height=54;
@@ -24,7 +24,7 @@ async function initZones(){
  const generation=zoneGeneration,key=selectedModel;
  setModelLoading(true);$('modelStatus').textContent='Cargando '+MODELS[key].name+'…';
  const pending=(async()=>{
-  const detector=await createZoneDetector(key,key==='yolo_trained'?trainedYoloBytes:trainedBytes,Number($('detectorConfidence').value)||.45,{...detectorOptions(),onProgress:info=>{if(generation===zoneGeneration)showModelProgress(key,info);}});
+  const detector=await createZoneDetector(key,key==='yolo_trained'?trainedYoloBytes:trainedBytes,Number($('detectorConfidence').value)||.45,{...detectorOptions(),...gpuOptions(),onProgress:info=>{if(generation===zoneGeneration)showModelProgress(key,info);}});
   if(generation!==zoneGeneration){await detector.close();return null;}
   objectDetector=detector;zoneFailure='';$('modelStatus').textContent='✓ LISTO: '+MODELS[key].name+' · pulsa 1. Detectar y fijar zonas para analizar el vídeo';return detector;
  })();objectPromise=pending;
@@ -75,7 +75,9 @@ const poseScope=()=>$('poseScope').value||'full';
 const setStatus=text=>$('status').textContent=text;
 function error(e){setStatus('Error');diagnostic=e.message||String(e);$('diag').textContent=diagnostic;console.error(e);}
 const poseName=()=>$('poseModel').selectedOptions?.[0]?.textContent||selectedPoseModel;
-const poseConfig=()=>selectedPoseModel+':'+poseScope()+':'+MAX_CYCLISTS;
+const poseConfig=()=>selectedPoseModel+':'+poseScope()+':'+MAX_CYCLISTS+':'+$('useWebGPU').checked;
+const gpuReports={};
+const gpuOptions=(role='Detector')=>({useWebGPU:$('useWebGPU').checked,onBackend:info=>{gpuReports[role]=info.backend+(info.fallbackReason?' · '+info.fallbackReason:'');$('gpuStatus').textContent=Object.entries(gpuReports).map(([name,text])=>name+': '+text).join(' | ');}});
 function syncAutomaticPhases(){
  $('layerDetector').checked=true;$('layerZones').checked=true;$('layerCrops').checked=$('detectorTiles').checked;
  $('layerPose').checked=selectedPoseModel!=='none';$('layerCadence').checked=selectedPoseModel!=='none';
@@ -104,9 +106,9 @@ async function initPose(){
  modelPromise=(async()=>{
   let createPoseModel=poseFactoryOverride;
   if(!createPoseModel){
-   ({createPoseModel}=await import('./pose-models.js?v=poseconfidence2'));
+   ({createPoseModel}=await import('./pose-models.js?v=webgpu1'));
   }
-  pose=await createPoseModel(selectedPoseModel,{maxPoses:MAX_CYCLISTS,scope:poseScope(),onProgress:showPoseProgress});
+  pose=await createPoseModel(selectedPoseModel,{maxPoses:MAX_CYCLISTS,scope:poseScope(),...gpuOptions('Postura'),onProgress:showPoseProgress});
   poseRuntimeConfig=poseConfig();
   $('poseStatus').textContent='✓ LISTO: '+poseName()+' · '+(source?'pulsa 2. Analizar posturas desde el inicio cuando las zonas estén fijadas.':'carga un vídeo o inicia la cámara.');
   return pose;
@@ -390,7 +392,7 @@ $('compareRun').onclick=async()=>{
   const c=$('compareCanvas');c.width=bitmap.width;c.height=bitmap.height;
   const context=c.getContext('2d');context.drawImage(bitmap,0,0);
   const snapshot=document.createElement('canvas');snapshot.width=c.width;snapshot.height=c.height;snapshot.getContext('2d').drawImage(bitmap,0,0);
-  detector=await createZoneDetector(key,key==='yolo_trained'?trainedYoloBytes:trainedBytes,threshold,detectorOptions());
+  detector=await createZoneDetector(key,key==='yolo_trained'?trainedYoloBytes:trainedBytes,threshold,{...detectorOptions(),...gpuOptions()});
   const started=performance.now(),result=await detector.detect(snapshot),elapsed=performance.now()-started;
   const labels=[];
   for(const d of result.detections??[]){
@@ -429,6 +431,21 @@ $('onlyBikes').onclick=()=>{for(const id of ['layerCrops','layerZones','layerPos
 $('allLayers').onclick=()=>{for(const id of ['layerDetector','layerCrops','layerZones','layerPose','layerCadence'])$(id).checked=true;$('detectorConfidence').value='.45';return changeLayers().catch(error);};
 
 
+$('useWebGPU').onchange=()=>{
+ layerChange=layerChange.catch(()=>{}).then(async()=>{
+  video.pause();cancelLoop();$('play').textContent='2. Analizar posturas desde el inicio';$('useWebGPU').disabled=true;
+  try{
+   while(frameBusy||zoneBusy)await new Promise(resolve=>setTimeout(resolve,20));
+   if(modelPromise)await modelPromise;if(objectPromise)await objectPromise;
+   const oldPose=pose,oldDetector=objectDetector;pose=null;objectDetector=null;poseRuntimeConfig=null;
+   await oldPose?.close();await oldDetector?.close();clearData(true);
+   for(const key of Object.keys(gpuReports))delete gpuReports[key];
+   $('gpuStatus').textContent=$('useWebGPU').checked?'Preparando WebGPU…':'CPU / WASM seleccionado';
+   await initZones();await initPose();
+   if(source&&video.readyState>=2)await processFrame(video.currentTime,true);
+  }catch(e){error(e);}finally{$('useWebGPU').disabled=false;}
+ });return layerChange;
+};
 $('poseModel').onchange=()=>{
  layerChange=layerChange.catch(()=>{}).then(async()=>{
   video.pause();cancelLoop();$('play').textContent='2. Analizar posturas desde el inicio';$('poseModel').disabled=true;

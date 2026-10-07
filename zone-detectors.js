@@ -72,8 +72,25 @@ export async function downloadModel(url,onProgress=()=>{}){
 }
 let ortPromise;
 async function runtime(){
- if(!ortPromise)ortPromise=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.js';script.onload=()=>resolve(globalThis.ort);script.onerror=()=>reject(Error('No se pudo cargar ONNX Runtime.'));document.head.append(script);}).catch(e=>{ortPromise=null;throw e;});
+ if(!ortPromise)ortPromise=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.webgpu.min.js';script.onload=()=>resolve(globalThis.ort);script.onerror=()=>reject(Error('No se pudo cargar ONNX Runtime.'));document.head.append(script);}).catch(e=>{ortPromise=null;throw e;});
  return ortPromise;
+}
+export async function createYoloSession(ort,bytes,{useWebGPU=false,onBackend=()=>{}}={}){
+ let session,backend='CPU / WASM',fallbackReason='';
+ const report=()=>onBackend({backend,fallbackReason});
+ if(useWebGPU){
+  try{
+   if(!globalThis.navigator?.gpu)throw Error('WebGPU no disponible; requiere navegador compatible y HTTPS o localhost.');
+   session=await ort.InferenceSession.create(bytes,{executionProviders:['webgpu','wasm']});
+   const warmup=new ort.Tensor('float32',new Float32Array(3*640*640),[1,3,640,640]);
+   let output;try{output=await session.run({[session.inputNames[0]]:warmup});}finally{warmup.dispose?.();if(output)Object.values(output).forEach(t=>t.dispose?.());}
+   backend='WebGPU (con alternativa WASM)';
+  }catch(e){await session?.release();session=null;fallbackReason=e.message||String(e);}
+ }
+ if(!session)session=await ort.InferenceSession.create(bytes,{executionProviders:['wasm']});
+ report();
+ return {get backend(){return backend;},get fallbackReason(){return fallbackReason;},get inputNames(){return session.inputNames;},get outputNames(){return session.outputNames;},get inputMetadata(){return session.inputMetadata;},
+ async run(feeds){try{return await session.run(feeds);}catch(e){if(!backend.startsWith('WebGPU'))throw e;await session.release();session=await ort.InferenceSession.create(bytes,{executionProviders:['wasm']});backend='CPU / WASM';fallbackReason=e.message||String(e);report();return session.run(feeds);}},release:()=>session.release()};
 }
 export async function createZoneDetector(key,trainedBytes,threshold=.45,options={}){
  const config=MODELS[key];if(!config)throw Error('Modelo desconocido.');
@@ -91,11 +108,11 @@ export async function createZoneDetector(key,trainedBytes,threshold=.45,options=
  const ort=await runtime();ort.env.wasm.numThreads=1;ort.env.wasm.wasmPaths='https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/';
  const bytes=config.local?trainedBytes:await downloadModel(config.url,progress);progress({stage:'prepare'});
  await new Promise(resolve=>setTimeout(resolve,0));
- const session=await ort.InferenceSession.create(bytes,{executionProviders:['wasm']});
+ const session=await createYoloSession(ort,bytes,options);
  const metadata=session.inputMetadata?.[0],shape=metadata?.shape;
  if(shape&&(shape.length!==4||shape.slice(1).join(',')!=='3,640,640'||(typeof shape[0]==='number'&&shape[0]!==1))){await session.release();throw Error('YOLO: entrada incompatible con 640×640.');}
  const canvas=document.createElement('canvas');canvas.width=640;canvas.height=640;const ctx=canvas.getContext('2d',{willReadFrequently:true});
- return {async detect(input){const w=input.width,h=input.height,s=Math.min(640/w,640/h),rw=Math.round(w*s),rh=Math.round(h*s);ctx.fillStyle='rgb(114,114,114)';ctx.fillRect(0,0,640,640);ctx.drawImage(input,Math.floor((640-rw)/2),Math.floor((640-rh)/2),rw,rh);const pixels=ctx.getImageData(0,0,640,640).data,plane=640*640,data=new Float32Array(plane*3);for(let i=0;i<plane;i++)for(let c=0;c<3;c++)data[c*plane+i]=pixels[i*4+c]/255;const result=await session.run({[session.inputNames[0]]:new ort.Tensor('float32',data,[1,3,640,640])});if(config.splitOutput)return decodeSplitYolo(result.logits,result.pred_boxes,w,h,threshold,options);const output=result[session.outputNames[0]];if(config.normalizedPose){const copy=scaleNormalizedPose(output.data,output.dims);return decodeYolo(copy,output.dims,w,h,640,threshold,['person'],{...options,pose:true});}return decodeYolo(output.data,output.dims,w,h,640,threshold,config.pose?['person']:config.classes,{...options,pose:config.pose});},setOptions(value){options=value;},setThreshold(value){threshold=value;},close:()=>session.release()};
+ return {get backend(){return session.backend;},get fallbackReason(){return session.fallbackReason;},async detect(input){const w=input.width,h=input.height,s=Math.min(640/w,640/h),rw=Math.round(w*s),rh=Math.round(h*s);ctx.fillStyle='rgb(114,114,114)';ctx.fillRect(0,0,640,640);ctx.drawImage(input,Math.floor((640-rw)/2),Math.floor((640-rh)/2),rw,rh);const pixels=ctx.getImageData(0,0,640,640).data,plane=640*640,data=new Float32Array(plane*3);for(let i=0;i<plane;i++)for(let c=0;c<3;c++)data[c*plane+i]=pixels[i*4+c]/255;const tensor=new ort.Tensor('float32',data,[1,3,640,640]);let result;try{result=await session.run({[session.inputNames[0]]:tensor});}finally{tensor.dispose?.();}try{if(config.splitOutput)return decodeSplitYolo(result.logits,result.pred_boxes,w,h,threshold,options);const output=result[session.outputNames[0]];if(config.normalizedPose){const copy=scaleNormalizedPose(output.data,output.dims);return decodeYolo(copy,output.dims,w,h,640,threshold,['person'],{...options,pose:true});}return decodeYolo(output.data,output.dims,w,h,640,threshold,config.pose?['person']:config.classes,{...options,pose:config.pose});}finally{Object.values(result).forEach(t=>t.dispose?.());}},setOptions(value){options=value;},setThreshold(value){threshold=value;},close:()=>session.release()};
 }
 
 export function scaleNormalizedPose(data,dims,size=640){

@@ -1,4 +1,4 @@
-import {createZoneDetector,downloadModel} from './zone-detectors.js?v=poseconfidence2';
+import {createZoneDetector,downloadModel} from './zone-detectors.js?v=webgpu1';
 export const POSE_MODELS={
  yolov8pose:{name:'YOLOv8n-pose',yolo:true},
  mediapipe_lite:{name:'MediaPipe Pose Lite',variant:'lite'},
@@ -27,12 +27,12 @@ export function selectCropPose(poses){
  return poses.slice().sort((a,b)=>rank(b)-rank(a))[0];
  function rank(p){const hip=(p[23].x+p[24].x)/2;return Math.min(...[11,12,23,24].map(i=>p[i].visibility??0))-.5*Math.abs(hip-.5);}
 }
-export async function createPoseModel(key,{onProgress=()=>{},maxPoses=32,scope='zones'}={}){
+export async function createPoseModel(key,{onProgress=()=>{},maxPoses=32,scope='zones',useWebGPU=false,onBackend=()=>{}}={}){
  const config=POSE_MODELS[key];if(!config)throw Error('Modelo de postura desconocido.');
  onProgress({stage:'runtime'});
  let backend;
  if(config.yolo){
-  const detector=await createZoneDetector(key,null,.25,{classIds:[0],maxDet:scope==='zones'?1:maxPoses,onProgress});
+  const detector=await createZoneDetector(key,null,.25,{classIds:[0],maxDet:scope==='zones'?1:maxPoses,onProgress,useWebGPU,onBackend});
   backend={async detect(input){const result=await detector.detect(input);return result.detections.map(d=>cocoLandmarks(d.keypoints??[],input.width,input.height));},close:()=>detector.close()};
  }else{
   const mod=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32');

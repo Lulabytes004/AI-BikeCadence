@@ -90,3 +90,22 @@ test('cached TFLite downloads reuse valid bytes and reject HTML without caching 
   await assert.rejects(downloadCachedTflite('https://model.test/html'),/TFLite válido/);assert.equal(stored.has('https://model.test/html'),false);
  }finally{global.fetch=originalFetch;if(originalCaches===undefined)delete global.caches;else global.caches=originalCaches;}
 });
+
+test('WebGPU session selection handles unsupported browsers, GPU preparation failure and runtime failure',async()=>{
+ const {createYoloSession}=await modulePromise;
+ const descriptor=Object.getOwnPropertyDescriptor(globalThis,'navigator');
+ let providers=[],gpuFails=false,runtimeFails=false,releases=0;
+ const ort={Tensor:class {dispose(){}},InferenceSession:{async create(bytes,options){
+  const gpu=options.executionProviders[0]==='webgpu';providers.push(options.executionProviders);
+  if(gpu&&gpuFails)throw Error('GPU model unsupported');let calls=0;
+  return {inputNames:['images'],outputNames:['output'],async run(){calls++;if(gpu&&runtimeFails&&calls>1)throw Error('GPU lost');return {output:{dispose(){}}};},async release(){releases++;}};
+ }}};
+ try{
+  Object.defineProperty(globalThis,'navigator',{value:{},configurable:true});
+  let session=await createYoloSession(ort,new Uint8Array(),{useWebGPU:true});assert.equal(session.backend,'CPU / WASM');assert.match(session.fallbackReason,/no disponible/);await session.release();
+  providers=[];Object.defineProperty(globalThis,'navigator',{value:{gpu:{}},configurable:true});gpuFails=true;
+  session=await createYoloSession(ort,new Uint8Array(),{useWebGPU:true});assert.deepEqual(providers.map(p=>p[0]),['webgpu','wasm']);assert.match(session.fallbackReason,/unsupported/);await session.release();
+  gpuFails=false;runtimeFails=true;providers=[];session=await createYoloSession(ort,new Uint8Array(),{useWebGPU:true});assert.match(session.backend,/WebGPU/);
+  await session.run({});assert.equal(session.backend,'CPU / WASM');assert.match(session.fallbackReason,/GPU lost/);assert.ok(releases>0);await session.release();
+ }finally{if(descriptor)Object.defineProperty(globalThis,'navigator',descriptor);else delete globalThis.navigator;}
+});
