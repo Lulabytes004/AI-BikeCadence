@@ -20,7 +20,7 @@
     return samples;
   }
   function analyzeWindow(h,type) {
-    const minAmp=type==='angle'?12:.12;
+    const minAmp=type==='angle'?12:type==='eyes'?.025:.12;
     if(h.length<30 || h.at(-1).t-h[0].t<1700)return null;
     const recent=h.filter(s=>h.at(-1).t-s.t<=900);
     if(recent.length<8 || span(recent.map(s=>s.v))<minAmp*.35)return null;
@@ -148,7 +148,7 @@
         // Erase stale cadence as soon as recent trajectories show no movement.
         const still=this.signals.size>0 && [...this.signals.values()].every(s=>{
           const r=s.h.filter(x=>t-x.t<=900);
-          return r.length>=8 && r.at(-1).t-r[0].t>=700 && span(r.map(x=>x.v))<(s.type==='angle'?4.2:.042);
+          return r.length>=8 && r.at(-1).t-r[0].t>=700 && span(r.map(x=>x.v))<(s.type==='angle'?4.2:s.type==='eyes'?.009:.042);
         });
         this.rpm=null;
         this.result={rpm:still?0:null,cycles:this.cycles,quality:0,method:null,state:still?'still':'waiting'};
@@ -156,7 +156,7 @@
       return this.result;
     }
   }
-  function poseSignals(lm,aspect=1){
+  function poseSignals(lm,aspect=1,mode='standard'){
     const p=lm.map(p=>({...p,x:p.x*aspect}));
     const visibility=(...ps)=>Math.min(...ps.map(p=>p?.visibility??0));
     const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -164,6 +164,13 @@
     const scale=Math.max(.08,torso*2); // stable torso scale; do not divide by a moving hip–ankle distance.
     const angle=(a,b,c)=>{const ux=a.x-b.x,uy=a.y-b.y,vx=c.x-b.x,vy=c.y-b.y;return Math.acos(clamp((ux*vx+uy*vy)/(Math.hypot(ux,uy)*Math.hypot(vx,vy)||1),-1,1))*180/Math.PI;};
     const signals=[];
+    if(mode==='eyes'){
+      const leftEye=p[2],rightEye=p[5];
+      const q=visibility(leftEye,rightEye);
+      const eyeCenterX=(leftEye.x+rightEye.x)/2;
+      signals.push({name:'Línea ojos X',v:eyeCenterX/scale,q,type:'eyes',points:[2,5]});
+      return signals;
+    }
     for(const [side,hi,ki,ai] of [['Izq.',23,25,27],['Der.',24,26,28]]){
       const h=p[hi],k=p[ki],a=p[ai];
       const upper=dist(h,k),lower=dist(k,a),bend=angle(h,k,a);
@@ -196,7 +203,7 @@
   class PoseTracks {
     constructor(maxTracks=8){this.maxTracks=maxTracks;this.tracks=[];}
     reset(){this.tracks=[];}
-    update(poses,t,aspect=1,still=false){
+    update(poses,t,aspect=1,still=false,mode='standard'){
       this.tracks=this.tracks.filter(x=>t-x.seen<(x.id===null?350:1200));
       const existing=this.tracks.slice();
       const center=(lm,a,b)=>({x:(lm[a].x+lm[b].x)/2,y:(lm[a].y+lm[b].y)/2});
@@ -232,7 +239,7 @@
           track.id=id;
         }
         seen.add(track);Object.assign(track,p,{seen:t});
-        track.signals=poseSignals(p.lm,aspect);track.result=still?track.detector.noMotion(t):track.detector.update(t,track.signals);
+        track.signals=poseSignals(p.lm,aspect,mode);track.result=still?track.detector.noMotion(t):track.detector.update(t,track.signals);
       }
       for(const track of this.tracks)if(!seen.has(track)){track.result=track.detector.missing(t);track.lm=null;}
       this.tracks.sort((a,b)=>a.id-b.id);
