@@ -20,13 +20,13 @@
     return samples;
   }
   function analyzeWindow(h,type) {
-    const minAmp=type==='angle'?12:type==='eyes'?.025:.12;
+    const minAmp=type==='angle'?12:type==='eyes'?.012:.12;
     if(h.length<30 || h.at(-1).t-h[0].t<1700)return null;
     const recent=h.filter(s=>h.at(-1).t-s.t<=900);
     if(recent.length<8 || span(recent.map(s=>s.v))<minAmp*.35)return null;
     const q=h.slice(-20).reduce((s,x)=>s+x.q,0)/Math.min(h.length,20);
     const amp=span(h.map(s=>s.v));
-    if(q<.5 || amp<minAmp)return null;
+    if(q<(type==='eyes'?.35:.5) || amp<minAmp)return null;
     const raw=regularize(h);
     const clean=raw.map((v,i)=>median(raw.slice(Math.max(0,i-1),Math.min(raw.length,i+2))));
     const xs=clean.map((v,i)=>{
@@ -40,7 +40,7 @@
     for(let lag=minLag-1;lag<=maxLag+1;lag++)cs[lag]=correlation(xs.slice(lag),xs.slice(0,-lag));
     for(let lag=minLag;lag<=maxLag;lag++){
       const c=cs[lag];
-      if(c<.55 || c<cs[lag-1] || c<cs[lag+1])continue;
+      if(c<(type==='eyes'?.48:.55) || c<cs[lag-1] || c<cs[lag+1])continue;
       const half=Math.round(lag/2), opposite=correlation(xs.slice(half),xs.slice(0,-half));
       if(opposite>0)continue; // monotone drift and flat trajectories are not cycles.
       candidates.push({lag,c});
@@ -84,7 +84,7 @@
       const valid=new Set();
       for(const value of values){
         const {name,v,q,type='position'}=value;
-        if(!Number.isFinite(v)||q<.5)continue;
+        if(!Number.isFinite(v)||q<(type==='eyes'?.35:.5))continue;
         valid.add(name);
         let s=this.signals.get(name);
         if(!s){s={h:[],type,estimate:null,armed:false,peak:null,lastCycle:null};this.signals.set(name,s);}
@@ -148,7 +148,7 @@
         // Erase stale cadence as soon as recent trajectories show no movement.
         const still=this.signals.size>0 && [...this.signals.values()].every(s=>{
           const r=s.h.filter(x=>t-x.t<=900);
-          return r.length>=8 && r.at(-1).t-r[0].t>=700 && span(r.map(x=>x.v))<(s.type==='angle'?4.2:s.type==='eyes'?.009:.042);
+          return r.length>=8 && r.at(-1).t-r[0].t>=700 && span(r.map(x=>x.v))<(s.type==='angle'?4.2:s.type==='eyes'?.0045:.042);
         });
         this.rpm=null;
         this.result={rpm:still?0:null,cycles:this.cycles,quality:0,method:null,state:still?'still':'waiting'};
@@ -165,10 +165,26 @@
     const angle=(a,b,c)=>{const ux=a.x-b.x,uy=a.y-b.y,vx=c.x-b.x,vy=c.y-b.y;return Math.acos(clamp((ux*vx+uy*vy)/(Math.hypot(ux,uy)*Math.hypot(vx,vy)||1),-1,1))*180/Math.PI;};
     const signals=[];
     if(mode==='eyes'){
-      const leftEye=p[2],rightEye=p[5];
-      const q=visibility(leftEye,rightEye);
-      const eyeCenterX=(leftEye.x+rightEye.x)/2;
-      signals.push({name:'Línea ojos X',v:eyeCenterX/scale,q,type:'eyes',points:[2,5]});
+      const nose=p[0],leftEye=p[2],rightEye=p[5],leftShoulder=p[11],rightShoulder=p[12];
+      const shoulderWidth=dist(leftShoulder,rightShoulder);
+      const headScale=Math.max(.05,shoulderWidth>torso*.25?shoulderWidth:scale*.5);
+      const qLeft=leftEye?.visibility??0,qRight=rightEye?.visibility??0,qNose=nose?.visibility??0;
+      if(qLeft>=.2&&qRight>=.2){
+        const eyeCenterX=(leftEye.x+rightEye.x)/2;
+        signals.push({name:'Centro ojos X',v:eyeCenterX/headScale,q:Math.min(qLeft,qRight),type:'eyes',points:[2,5]});
+      }
+      if(qLeft>=.2)signals.push({name:'Ojo Izq. X',v:leftEye.x/headScale,q:qLeft,type:'eyes',points:[2]});
+      if(qRight>=.2)signals.push({name:'Ojo Der. X',v:rightEye.x/headScale,q:qRight,type:'eyes',points:[5]});
+      if(qNose>=.2)signals.push({name:'Nariz X',v:nose.x/headScale,q:qNose,type:'eyes',points:[0]});
+      const weighted=[];
+      if(qLeft>=.2)weighted.push([leftEye.x,qLeft]);
+      if(qRight>=.2)weighted.push([rightEye.x,qRight]);
+      if(qNose>=.2)weighted.push([nose.x,qNose*.85]);
+      if(weighted.length){
+        const sumQ=weighted.reduce((sum,[,q])=>sum+q,0);
+        const headX=weighted.reduce((sum,[x,q])=>sum+x*q,0)/sumQ;
+        signals.push({name:'Cabeza X',v:headX/headScale,q:Math.min(1,sumQ/weighted.length),type:'eyes',points:[0,2,5]});
+      }
       return signals;
     }
     for(const [side,hi,ki,ai] of [['Izq.',23,25,27],['Der.',24,26,28]]){
