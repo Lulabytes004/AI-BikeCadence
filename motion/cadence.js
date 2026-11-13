@@ -74,12 +74,12 @@
     }
     missing(t){
       if(t<=this.lastTime)return this.result;
-      this.lastTime=t;if(t-this.lastObservation>300){this.signals.clear();this.best=null;this.lastAccepted=-Infinity;this.acceptedRpm=null;this.pendingRpm=null;}this.rpm=null;
+      this.lastTime=t;if(t-this.lastObservation>700){this.signals.clear();this.best=null;this.lastAccepted=-Infinity;this.acceptedRpm=null;this.pendingRpm=null;}this.rpm=null;
       this.result={rpm:null,cycles:this.cycles,quality:0,method:null,state:'missing'};return this.result;
     }
     update(t,values){
       if(!Number.isFinite(t)||t<=this.lastTime)return this.result; // never count a repeated decoded frame.
-      if(this.lastObservation!==-Infinity && t-this.lastObservation>300){this.signals.clear();this.best=null;this.rpm=null;this.lastAccepted=-Infinity;this.acceptedRpm=null;this.pendingRpm=null;}
+      if(this.lastObservation!==-Infinity && t-this.lastObservation>700){this.signals.clear();this.best=null;this.rpm=null;this.lastAccepted=-Infinity;this.acceptedRpm=null;this.pendingRpm=null;}
       this.lastTime=t;this.lastObservation=t;
       const valid=new Set();
       for(const value of values){
@@ -90,7 +90,7 @@
         if(!s){s={h:[],type,estimate:null,armed:false,peak:null,lastCycle:null};this.signals.set(name,s);}
         s.h.push({t,v,q});while(s.h.length && t-s.h[0].t>6500)s.h.shift();
       }
-      for(const [name,s] of this.signals)if(t-s.h.at(-1).t>300)this.signals.delete(name);
+      for(const [name,s] of this.signals)if(t-s.h.at(-1).t>700)this.signals.delete(name);
       if(t-this.lastAnalysis>=180){
         this.lastAnalysis=t;
         for(const s of this.signals.values())s.estimate=analyze(s.h,s.type);
@@ -120,7 +120,7 @@
           this.pendingSeen=t;
           if(t-this.pendingSince<600)chosen=null;
           else{this.acceptedRpm=estimate.rpm;this.pendingRpm=null;}
-        }else{this.acceptedRpm=this.acceptedRpm*.9+estimate.rpm*.1;this.pendingRpm=null;}
+        }else{this.acceptedRpm=this.acceptedRpm*.94+estimate.rpm*.06;this.pendingRpm=null;}
       }
       this.best=chosen;
       // Every signal keeps its own phase and period. No shared peak-time between knees/feet.
@@ -220,7 +220,7 @@
     constructor(maxTracks=8){this.maxTracks=maxTracks;this.tracks=[];}
     reset(){this.tracks=[];}
     update(poses,t,aspect=1,still=false,mode='standard'){
-      this.tracks=this.tracks.filter(x=>t-x.seen<(x.id===null?350:1200));
+      this.tracks=this.tracks.filter(x=>t-x.seen<(x.id===null?350:2000));
       const existing=this.tracks.slice();
       const center=(lm,a,b)=>({x:(lm[a].x+lm[b].x)/2,y:(lm[a].y+lm[b].y)/2});
       const distance=(a,b)=>Math.hypot((a.x-b.x)*aspect,a.y-b.y);
