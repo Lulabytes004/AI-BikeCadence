@@ -74,6 +74,7 @@ let lastMediaTime=-1,lastModelTimestamp=0,lastInferenceWall=0,lastPixels=null,la
 let records=[],poseRecords=[],modelPromise=null,diagnostic='';
 let selectedPoseModel=$('poseModel').value||'none',frameBusy=false,poseRuntimeConfig=null,poseLoading=false,detectorLoading=false,manualScan=false,poseFactoryOverride=null;
 const poseScope=()=>$('poseScope').value||'full';
+const cadenceMode=()=>$('cadenceMode')?.value||'standard';
 const setStatus=text=>$('status').textContent=text;
 function error(e){setStatus('Error');diagnostic=e.message||String(e);$('diag').textContent=diagnostic;console.error(e);}
 const poseName=()=>$('poseModel').selectedOptions?.[0]?.textContent||selectedPoseModel;
@@ -223,7 +224,7 @@ function processFrame(mediaTime,preview=false){
   showZoneStatus();
   lastPoseLandmarks=result.landmarks??[];lastPoseZoneIds=result.zoneIds??[];lastPoseMs=layer('layerPose')?performance.now()-poseStarted:0;
   $('poseResults').textContent=layer('layerPose')?(lastPoseLandmarks.length+' posturas en '+(poseScope()==='zones'?bikeZones.zones.length+' zonas':'la imagen completa')+' · '+lastPoseMs.toFixed(0)+' ms por fotograma'+(!lastPoseLandmarks.length?' · El modelo no ha devuelto puntos todavía.':'')):'Ninguno: no se analiza postura.';
-  const found=!preview&&layer('layerCadence')&&layer('layerPose')?tracks.update(result.landmarks??[],t,video.videoWidth/video.videoHeight,still):(result.landmarks??[]).map((lm,i)=>({id:i+1,lm,x:lm[23]?.x??0,result:{rpm:null,state:'waiting',quality:0,cycles:0}}));
+  const found=!preview&&layer('layerCadence')&&layer('layerPose')?tracks.update(result.landmarks??[],t,video.videoWidth/video.videoHeight,still,cadenceMode()):(result.landmarks??[]).map((lm,i)=>({id:i+1,lm,x:lm[23]?.x??0,result:{rpm:null,state:'waiting',quality:0,cycles:0}}));
   lastFound=found;render(found);draw(found);motionUpdate(found,t);updateTime();if(!preview)record(t,found,result.landmarks??[],still,result.zoneIds??[]);
   const waiting=layer('layerPose')&&poseScope()==='zones'&&!bikeZones.locked;
   setStatus(waiting?'Esperando zonas confirmadas…':!layer('layerCadence')?'Detección sin cálculo de RPM':still?'Imagen quieta':found.length?'Analizando ciclistas…':'No veo una persona');
@@ -462,6 +463,14 @@ $('onlyBikes').onclick=()=>{for(const id of ['layerCrops','layerZones','layerPos
 $('allLayers').onclick=()=>{for(const id of ['layerDetector','layerCrops','layerZones','layerPose','layerCadence'])$(id).checked=true;$('detectorConfidence').value='.45';return changeLayers().catch(error);};
 
 
+$('cadenceMode').onchange=()=>{
+ clearData(true);
+ $('cadenceModeHelp').textContent=cadenceMode()==='eyes'
+  ?'Línea de ojos: usa la oscilación horizontal del centro entre ambos ojos. Mantén la cámara fija y procura que ambos ojos sean visibles.'
+  :'Estándar: combina dinámicamente rodillas, pies y ángulos y elige la señal más fiable.';
+ setStatus(cadenceMode()==='eyes'?'Modo Línea de ojos':'Modo Estándar');
+ if(video.paused&&pose&&source)Promise.resolve(processFrame(video.currentTime)).catch(error);
+};
 $('poseScope').onchange=async()=>{
  video.pause();cancelLoop();syncAnalysisMode();
  try{
@@ -535,7 +544,7 @@ syncModelUI();renderReferences();syncAutomaticPhases();syncAnalysisMode();
 function setModelLoading(busy){
  detectorLoading=busy;const blocked=busy||poseLoading||manualScan;
  $('modelProgress').hidden=!busy;
- for(const id of ['zoneModel','layerDetector','layerCrops','layerZones','layerPose','layerCadence','detectorObjects','detectorConfidence','detectorMaxDet','onlyBikes','allLayers','trainedModelFile','poseModel','poseScope','maxZones','detectorTiles'])$(id).disabled=blocked;
+ for(const id of ['zoneModel','layerDetector','layerCrops','layerZones','layerPose','layerCadence','detectorObjects','detectorConfidence','detectorMaxDet','onlyBikes','allLayers','trainedModelFile','poseModel','poseScope','cadenceMode','maxZones','detectorTiles'])$(id).disabled=blocked;
  if(!busy)$('layerCadence').disabled=!layer('layerPose');
  $('modelLoadPanel').style.borderColor=busy?'#fbbf24':'#64748b';
  for(const id of ['play','step','scanZones'])$(id).disabled=blocked||!source||(id==='step'&&source!=='file');
